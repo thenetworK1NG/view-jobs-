@@ -1,0 +1,116 @@
+/* Modern, fresh, vibrant UI theme for view-jobs--main */
+
+body {
+  background: linear-gradient(120deg, #f8fafc 0%, #e0e7ef 100%);
+  color: #232946;
+  font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+header, h1, h2, h3, h4, h5, h6 {
+  color: #7c3aed;
+  text-shadow: none;
+}
+
+.container {
+  max-width: 900px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px 0 rgba(44, 62, 80, 0.10);
+  padding: 36px 28px;
+}
+
+button, input[type="submit"], .btn {
+  background: linear-gradient(90deg, #7c3aed 0%, #38bdf8 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 26px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.10);
+}
+button:hover, input[type="submit"]:hover, .btn:hover {
+  background: linear-gradient(90deg, #38bdf8 0%, #7c3aed 100%);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.15);
+}
+
+input, select, textarea {
+  background: #f3f4f6;
+  color: #232946;
+  border: 1.5px solid #7c3aed;
+  border-radius: 7px;
+  padding: 9px 13px;
+  margin-bottom: 14px;
+  font-size: 1rem;
+  transition: border 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  border: 2px solid #38bdf8;
+  outline: none;
+}
+
+.card, .job-listing, .job-card, .person-modal-content, .a4-modal-content {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 24px 0 rgba(124, 58, 237, 0.07);
+  padding: 22px 20px;
+  margin-bottom: 22px;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.card:hover, .job-listing:hover, .job-card:hover {
+  box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.13);
+  transform: translateY(-2px) scale(1.01);
+}
+
+a, a:visited {
+  color: #7c3aed;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+a:hover {
+  color: #38bdf8;
+  text-decoration: underline;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  background: #e0e7ef;
+}
+::-webkit-scrollbar-thumb {
+  background: #7c3aed;
+  border-radius: 8px;
+}
+
+#status, #clearLogPasswordStatus {
+  color: #e11d48;
+}
+
+#currentUserDisplay {
+  text-align: center;
+  font-size: 3rem;
+  font-weight: 900;
+  font-family: 'Arial Black', Arial, 'Poppins', 'Segoe UI', 'Roboto', sans-serif;
+  background: linear-gradient(90deg, #7c3aed 0%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 18px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 16px 4px;
+  }
+  .card, .job-listing, .job-card, .person-modal-content, .a4-modal-content {
+    padding: 12px 6px;
+  }
+} 
