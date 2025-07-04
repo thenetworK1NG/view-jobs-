@@ -28,6 +28,8 @@ const clientModalContent = document.getElementById('clientModalContent');
 let allJobs = [];
 let jobKeyMap = {};
 let selectedPerson = null;
+let isManualUpdate = false;
+let animatedClients = new Set();
 const allowedPeople = ["Andre", "Francois", "Yolandie", "Neil"];
 
 function populatePersonSelect(people) {
@@ -92,6 +94,10 @@ selectPersonBtn.addEventListener('click', () => {
     }
     selectedPerson = person;
     hidePersonModal();
+    
+    // Check and show welcome back message
+    checkAndShowWelcomeBack(person);
+    
     renderJobsForPerson(selectedPerson);
 });
 
@@ -105,6 +111,36 @@ changePersonBtn.addEventListener('click', () => {
 // Initial load
 showPersonModal();
 loadJobsAndPeople();
+
+// Auto-refresh client list every 3 seconds
+setInterval(() => {
+    if (selectedPerson && !isManualUpdate) {
+        // Refresh allJobs from Firebase
+        const jobsRef = ref(database, 'jobCards');
+        onValue(jobsRef, (snapshot) => {
+            allJobs = [];
+            jobKeyMap = {};
+            if (snapshot.exists()) {
+                const val = snapshot.val();
+                for (const [key, job] of Object.entries(val)) {
+                    allJobs.push({...job, _key: key});
+                    jobKeyMap[job.id || job.customerCell || key] = key;
+                }
+            }
+            // Re-render the filtered jobs for the selected person
+            const jobs = allJobs.filter(job => job.assignedTo === selectedPerson && !isJobInRecycle(job));
+            if (jobs.length === 0) {
+                if (statusDiv) statusDiv.textContent = `No jobs found for ${selectedPerson}.`;
+                return;
+            }
+            if (statusDiv) statusDiv.textContent = '';
+            const clientMap = groupJobsByClient(jobs);
+            renderFilteredClientList(clientMap);
+        }, (error) => {
+            console.error('Auto-refresh error:', error);
+        });
+    }
+}, 3000);
 
 // Modal logic
 const descModal = document.getElementById('descModal');
@@ -213,14 +249,18 @@ function renderRecycleBin() {
     const recycleStatus = document.getElementById('recycleStatus');
     const tbody = recycleTable.querySelector('tbody');
     tbody.innerHTML = '';
-    if (recycle.length === 0) {
+    
+    // Filter recycle bin to show only jobs for the currently selected user
+    const userRecycle = selectedPerson ? recycle.filter(j => j.job && j.job.assignedTo === selectedPerson) : [];
+    
+    if (userRecycle.length === 0) {
         recycleTable.style.display = 'none';
-        recycleStatus.textContent = 'Recycle bin is empty.';
+        recycleStatus.textContent = selectedPerson ? `No deleted jobs found for ${selectedPerson}.` : 'Please select a user to view their deleted jobs.';
         return;
     }
     recycleTable.style.display = '';
     recycleStatus.textContent = '';
-    recycle.forEach(j => {
+    userRecycle.forEach(j => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${safeField(j.job.customerName)}</td>
@@ -391,6 +431,7 @@ function openClientModal(client, jobs) {
             </table>
             <button class='edit-job-btn' data-jobid='${jobId}' style='margin-top:12px;background:#7c3aed;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Edit</button>
             <button class='send-along-btn' data-jobid='${jobId}' style='margin-top:12px;background:#38bdf8;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Send It Along</button>
+            <button class='save-pdf-btn' data-jobid='${jobId}' style='margin-top:12px;background:#10b981;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Save as PDF</button>
             <button class='delete-job-btn' data-jobid='${jobId}' style='margin-top:12px;background:#b23c3c;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;'>Delete Job</button>
         </div>`;
     });
@@ -424,6 +465,12 @@ document.body.addEventListener('click', function(e) {
         const job = allJobs.find(j => j._key === jobId);
         if (!job) return;
         openSendAlongModal(job);
+    }
+    if (e.target.classList.contains('save-pdf-btn')) {
+        const jobId = e.target.dataset.jobid;
+        const job = allJobs.find(j => j._key === jobId);
+        if (!job) return;
+        generatePDF(job);
     }
     if (e.target.classList.contains('delete-job-btn')) {
         const jobId = e.target.dataset.jobid;
@@ -537,6 +584,10 @@ function openSendAlongModal(job) {
             .then(() => {
                 status.style.color = '#38bdf8';
                 status.textContent = 'Job sent along!';
+                // Show popup notification
+                showPopupNotification(`Job sent to ${newUser}!`, 'success', 4000);
+                // Set manual update flag to prevent auto-refresh interference
+                isManualUpdate = true;
                 // Instantly update UI: close modal, remove job from allJobs, return to client list, and refresh
                 modal.style.display = 'none';
                 status.textContent = '';
@@ -545,6 +596,10 @@ function openSendAlongModal(job) {
                 allJobs = allJobs.filter(j => j._key !== job._key);
                 renderClientList();
                 writeLog({user: newUser, action: 'sent along', jobName: job.customerName, details: `from ${job.assignedTo}`});
+                // Clear manual update flag after 5 seconds to allow auto-refresh to resume
+                setTimeout(() => {
+                    isManualUpdate = false;
+                }, 5000);
             })
             .catch((err) => {
                 status.style.color = '#e11d48';
@@ -554,7 +609,176 @@ function openSendAlongModal(job) {
     modal.style.display = 'flex';
 }
 
+function generatePDF(job) {
+    const jsPDFLib = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
+    if (!jsPDFLib) {
+        alert('PDF library not loaded. Please check your internet connection or try again.');
+        return;
+    }
+    const doc = new jsPDFLib();
+
+    // Professional header with light grey background
+    doc.setFillColor(128, 128, 128);
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    // White text on grey background
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text('JOB CARD', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(16);
+    doc.text(job.customerName || 'Customer', 105, 32, { align: 'center' });
+
+    // Reset text color for content
+    doc.setTextColor(0, 0, 0);
+    
+    // Add date in top right
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date: ${safeField(job.date)}`, 180, 15, { align: 'right' });
+
+    // Add job details in the specified order with professional styling
+    doc.setFontSize(12);
+    let y = 55;
+
+    const details = [
+        ['Customer Name', safeField(job.customerName)],
+        ['Cell Number', safeField(job.customerCell)],
+        ['Email', safeField(job.email)],
+        ['Description', safeField(job.jobDescription)],
+        ['Stickers', safeList(job.stickers)],
+        ['Other', safeList(job.other)],
+        ['Banner', safeList(job.banner_canvas)],
+        ['Boards', safeList(job.boards)],
+        ['Deposit', job.deposit ? formatRand(job.deposit) : '—'],
+        ['Balance Due', job.balanceDue ? formatRand(job.balanceDue) : '—'],
+        ['Job Total', job.jobTotal ? formatRand(job.jobTotal) : '—'],
+        ['Assigned To', safeField(job.assignedTo)]
+    ];
+
+    doc.autoTable({
+        startY: y,
+        head: [['Field', 'Value']],
+        body: details,
+        theme: 'grid',
+        headStyles: { 
+            fillColor: [128, 128, 128],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 12
+        },
+        bodyStyles: {
+            fontSize: 11,
+            lineColor: [200, 200, 200],
+            lineWidth: 0.1
+        },
+        alternateRowStyles: {
+            fillColor: [248, 249, 250]
+        },
+        margin: { top: 10, right: 20, bottom: 20, left: 20 },
+        styles: {
+            overflow: 'linebreak',
+            cellWidth: 'auto'
+        },
+        columnStyles: {
+            0: { cellWidth: 50, fontStyle: 'bold' },
+            1: { cellWidth: 120 }
+        }
+    });
+
+    // Add footer
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Generated on: ' + new Date().toLocaleDateString(), 20, pageHeight - 20);
+    doc.text('Job Card System', 190, pageHeight - 20, { align: 'right' });
+
+    // Save the PDF directly
+    const filename = `JobCard_${(job.customerName || '').replace(/\s+/g, '_')}_${job.date || ''}.pdf`;
+    doc.save(filename);
+}
+
+function applyUserTheme(user) {
+    const root = document.documentElement;
+    
+    switch(user) {
+        case 'Neil':
+            // Teal blue gradient
+            root.style.setProperty('--primary-color', '#0ea5e9');
+            root.style.setProperty('--secondary-color', '#0891b2');
+            root.style.setProperty('--accent-color', '#06b6d4');
+            root.style.setProperty('--gradient-start', '#0ea5e9');
+            root.style.setProperty('--gradient-end', '#0891b2');
+            root.style.setProperty('--primary-color-rgb', '14, 165, 233');
+            break;
+        case 'Yolandie':
+            // Pink purple gradient
+            root.style.setProperty('--primary-color', '#ec4899');
+            root.style.setProperty('--secondary-color', '#a855f7');
+            root.style.setProperty('--accent-color', '#c084fc');
+            root.style.setProperty('--gradient-start', '#ec4899');
+            root.style.setProperty('--gradient-end', '#a855f7');
+            root.style.setProperty('--primary-color-rgb', '236, 72, 153');
+            break;
+        case 'Francois':
+            // Green gradient
+            root.style.setProperty('--primary-color', '#10b981');
+            root.style.setProperty('--secondary-color', '#059669');
+            root.style.setProperty('--accent-color', '#34d399');
+            root.style.setProperty('--gradient-start', '#10b981');
+            root.style.setProperty('--gradient-end', '#059669');
+            root.style.setProperty('--primary-color-rgb', '16, 185, 129');
+            break;
+        case 'Andre':
+            // Golden gradient
+            root.style.setProperty('--primary-color', '#f59e0b');
+            root.style.setProperty('--secondary-color', '#d97706');
+            root.style.setProperty('--accent-color', '#fbbf24');
+            root.style.setProperty('--gradient-start', '#f59e0b');
+            root.style.setProperty('--gradient-end', '#d97706');
+            root.style.setProperty('--primary-color-rgb', '245, 158, 11');
+            break;
+        default:
+            // Default purple theme
+            root.style.setProperty('--primary-color', '#7c3aed');
+            root.style.setProperty('--secondary-color', '#38bdf8');
+            root.style.setProperty('--accent-color', '#8b5cf6');
+            root.style.setProperty('--gradient-start', '#7c3aed');
+            root.style.setProperty('--gradient-end', '#38bdf8');
+            root.style.setProperty('--primary-color-rgb', '124, 58, 237');
+    }
+    
+    // Specifically target client buttons and ensure they use the correct theme
+    const clientButtons = document.querySelectorAll('.client-list .client-name');
+    clientButtons.forEach(btn => {
+        btn.style.background = `linear-gradient(90deg, var(--gradient-start) 0%, var(--gradient-end) 100%)`;
+        btn.style.color = '#fff';
+        btn.style.boxShadow = `0 4px 15px rgba(var(--primary-color-rgb), 0.15)`;
+    });
+    
+    // Apply theme to specific elements that might not use CSS variables
+    const buttons = document.querySelectorAll('button, .btn, input[type="submit"]');
+    buttons.forEach(btn => {
+        if (btn.style.background && btn.style.background.includes('7c3aed')) {
+            btn.style.background = `linear-gradient(90deg, var(--gradient-start) 0%, var(--gradient-end) 100%)`;
+        }
+    });
+    
+    // Update any inline styles that might be using purple
+    const elementsWithPurple = document.querySelectorAll('[style*="7c3aed"], [style*="purple"]');
+    elementsWithPurple.forEach(el => {
+        const style = el.getAttribute('style');
+        if (style) {
+            el.setAttribute('style', style.replace(/#7c3aed/g, 'var(--primary-color)'));
+        }
+    });
+}
+
 function renderJobsForPerson(person) {
+    // Apply user-specific theme
+    applyUserTheme(person);
+    
     // Show only jobs assigned to this person, grouped by client
     clientListDiv.innerHTML = '';
     const currentUserDisplay = document.getElementById('currentUserDisplay');
@@ -606,7 +830,21 @@ function renderFilteredClientList(clientMap) {
         btn.className = 'client-name';
         btn.textContent = `${client} (${jobs.length})`;
         btn.onclick = () => openClientModal(client, jobs);
+        
+        // Only animate if this client hasn't been animated before
+        if (!animatedClients.has(client)) {
+            animatedClients.add(client);
+            btn.style.animation = 'bounceIn 0.6s ease-out';
+        } else {
+            btn.style.animation = 'none';
+        }
+        
         clientListDiv.appendChild(btn);
+    }
+    
+    // Force reapply theme to ensure client buttons use correct colors
+    if (selectedPerson) {
+        applyUserTheme(selectedPerson);
     }
 }
 
@@ -773,4 +1011,60 @@ if (!document.getElementById('sendAlongModal')) {
         </div>
     `;
     document.body.appendChild(sendModal);
+}
+
+// Popup notification function
+function showPopupNotification(message, type = 'default', duration = 3000) {
+    const notification = document.createElement('div');
+    notification.className = `popup-notification ${type}`;
+    notification.textContent = message;
+    
+    // Add to body
+    document.body.appendChild(notification);
+    
+    // Remove after duration
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 500);
+    }, duration);
+}
+
+// Welcome back popup system
+function checkAndShowWelcomeBack(user) {
+    const loginRef = ref(database, 'userLogins/' + user);
+    
+    onValue(loginRef, (snapshot) => {
+        const lastLogin = snapshot.val();
+        const now = Date.now();
+        const fiveHours = 5 * 60 * 60 * 1000; // 5 hours in milliseconds
+        
+        if (!lastLogin || (now - lastLogin) > fiveHours) {
+            // Determine notification type based on user
+            let notificationType = 'default';
+            switch(user) {
+                case 'Yolandie':
+                    notificationType = 'purple';
+                    break;
+                case 'Francois':
+                    notificationType = 'success';
+                    break;
+                case 'Andre':
+                    notificationType = 'gold';
+                    break;
+                case 'Neil':
+                    notificationType = 'teal';
+                    break;
+            }
+            
+            // Show welcome back message with user-specific color
+            showPopupNotification(`Welcome back, ${user}! 👋`, notificationType, 5000);
+            
+            // Update last login time in Firebase
+            set(loginRef, now);
+        }
+    }, { once: true }); // Only check once, don't listen for changes
 } 
