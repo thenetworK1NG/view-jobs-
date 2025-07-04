@@ -58,7 +58,7 @@ function loadJobsAndPeople() {
         if (snapshot.exists()) {
             const val = snapshot.val();
             for (const [key, job] of Object.entries(val)) {
-                allJobs.push(job);
+                allJobs.push({...job, _key: key});
                 jobKeyMap[job.id || job.customerCell || key] = key;
             }
             // Get unique people from assignedTo
@@ -148,7 +148,7 @@ descModal.addEventListener('click', (e) => {
 // Recycle bin logic
 function isJobInRecycle(job) {
     const recycle = getRecycleBin();
-    return recycle.some(j => j.jobId === (job.id || job.customerCell || ''));
+    return recycle.some(j => j.jobId === job._key);
 }
 function getRecycleBin() {
     let recycle = localStorage.getItem('recycleBin');
@@ -161,7 +161,7 @@ function setRecycleBin(arr) {
 function addToRecycleBin(job) {
     const recycle = getRecycleBin();
     recycle.push({
-        jobId: job.id || job.customerCell || '',
+        jobId: job._key,
         job,
         deletedOn: Date.now()
     });
@@ -262,7 +262,7 @@ function renderRecycleBin() {
             const fbKey = jobKeyMap[jobId];
             if (fbKey) remove(ref(database, 'jobCards/' + fbKey));
             // Remove from allJobs in memory
-            allJobs = allJobs.filter(j => (j.id || j.customerCell || '') !== jobId);
+            allJobs = allJobs.filter(j => j._key !== jobId);
             writeLog({user: entry && entry.job ? entry.job.assignedTo : '—', action: 'deleted forever', jobName: entry && entry.job ? entry.job.customerName : jobId});
             renderClientList();
             renderRecycleBin();
@@ -274,45 +274,65 @@ function renderRecycleBin() {
 const deleteModal = document.getElementById('deleteModal');
 const closeDeleteModal = document.getElementById('closeDeleteModal');
 const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 let currentDeleteJobId = null;
-function openDeleteModal(jobId) {
+
+window.openDeleteModal = function(jobId) {
     currentDeleteJobId = jobId;
-    // Always close the client modal before opening delete modal
+    // Hide all other modals
     if (clientModal) clientModal.style.display = 'none';
-    if (deleteModal) {
-        deleteModal.style.display = 'flex';
-        deleteModal.style.zIndex = 4000;
+    if (descModal) descModal.style.display = 'none';
+    if (recycleBinModal) recycleBinModal.style.display = 'none';
+    if (logModal) logModal.style.display = 'none';
+    deleteModal.style.display = 'flex';
+    deleteModal.style.zIndex = '5000';
+    // Focus the cancel button for accessibility
+    if (cancelDeleteBtn) cancelDeleteBtn.focus();
+    // Attach event listener to confirmDeleteBtn every time modal opens
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.onclick = function() {
+            console.log('Move to Recycle Bin clicked, jobId:', currentDeleteJobId);
+            if (!currentDeleteJobId) return;
+            // Find job robustly
+            const job = allJobs.find(j => jobKeyMap[j.id || j.customerCell || ''] === currentDeleteJobId || (j.id || j.customerCell || '') === currentDeleteJobId);
+            if (!job) return;
+            addToRecycleBin(job);
+            // Remove from Firebase (soft delete)
+            const fbKey = jobKeyMap[job.id || job.customerCell || ''] || currentDeleteJobId;
+            if (fbKey) remove(ref(database, 'jobCards/' + fbKey));
+            writeLog({user: job.assignedTo, action: 'deleted', jobName: job.customerName});
+            deleteModal.style.display = 'none';
+            renderClientList();
+            renderRecycleBin();
+            currentDeleteJobId = null;
+        };
     }
-}
-closeDeleteModal.addEventListener('click', () => {
+};
+
+if (closeDeleteModal) closeDeleteModal.addEventListener('click', () => {
     deleteModal.style.display = 'none';
     currentDeleteJobId = null;
 });
-deleteModal.addEventListener('click', (e) => {
-    if (e.target === deleteModal) deleteModal.style.display = 'none';
-});
-confirmDeleteBtn.addEventListener('click', () => {
-    if (!currentDeleteJobId) return;
-    // Find job
-    const job = allJobs.find(j => (j.id || j.customerCell || '') == currentDeleteJobId);
-    if (!job) return;
-    addToRecycleBin(job);
-    // Remove from Firebase (soft delete)
-    const fbKey = jobKeyMap[currentDeleteJobId];
-    if (fbKey) remove(ref(database, 'jobCards/' + fbKey));
-    writeLog({user: job.assignedTo, action: 'deleted', jobName: job.customerName});
+if (cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', () => {
     deleteModal.style.display = 'none';
-    renderClientList();
-    renderRecycleBin();
     currentDeleteJobId = null;
+});
+if (deleteModal) deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) {
+        deleteModal.style.display = 'none';
+        currentDeleteJobId = null;
+    }
 });
 
 function groupJobsByClient(jobs) {
     const map = new Map();
     jobs.forEach(job => {
         if (!job.customerName) return;
-        if (!map.has(job.customerName)) map.set(job.customerName, []);
-        map.get(job.customerName).push(job);
+        // Find the original job object from allJobs (by key)
+        const original = allJobs.find(j => j._key === job._key);
+        const jobRef = original || job;
+        if (!map.has(jobRef.customerName)) map.set(jobRef.customerName, []);
+        map.get(jobRef.customerName).push(jobRef);
     });
     return map;
 }
@@ -350,7 +370,7 @@ function openClientModal(client, jobs) {
     let html = `<button class='close-modal-btn' onclick='document.getElementById("clientModal").style.display="none"'>&times;</button>`;
     html += `<h2>${client}</h2>`;
     jobs.forEach((job, idx) => {
-        const jobId = job.id || job.customerCell || '';
+        const jobId = job._key;
         html += `<div class='a4-job-details'>
             <h3>Job #${idx + 1}</h3>
             <table>
@@ -384,7 +404,24 @@ document.body.addEventListener('click', function(e) {
     if (e.target.classList.contains('delete-job-btn')) {
         const jobId = e.target.dataset.jobid;
         clientModal.style.display = 'none';
-        openDeleteModal(jobId);
+        // Find the job by unique _key
+        const job = allJobs.find(j => j._key === jobId);
+        console.log('[DELETE DEBUG] Attempting to delete job:', jobId, job);
+        if (!job) return;
+        addToRecycleBin(job);
+        // Remove from Firebase (soft delete)
+        if (jobId) {
+            remove(ref(database, 'jobCards/' + jobId)).then(() => {
+                console.log('[DELETE DEBUG] Successfully removed from Firebase:', jobId);
+            }).catch(err => {
+                console.error('[DELETE DEBUG] Error removing from Firebase:', jobId, err);
+            });
+        }
+        // Remove from allJobs in memory (robust)
+        allJobs = allJobs.filter(j => j._key !== jobId);
+        writeLog({user: job.assignedTo, action: 'deleted', jobName: job.customerName});
+        renderClientList();
+        renderRecycleBin();
     }
 });
 
