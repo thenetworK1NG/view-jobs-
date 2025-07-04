@@ -561,6 +561,11 @@ function renderJobsForPerson(person) {
     if (currentUserDisplay) {
         currentUserDisplay.textContent = person ? person : '';
     }
+    // Show search bar when a user is selected
+    const searchContainer = document.getElementById('searchContainer');
+    if (searchContainer) {
+        searchContainer.style.display = person ? 'block' : 'none';
+    }
     // Refresh allJobs from Firebase to get latest changes
     const jobsRef = ref(database, 'jobCards');
     onValue(jobsRef, (snapshot) => {
@@ -581,15 +586,39 @@ function renderJobsForPerson(person) {
         }
         if (statusDiv) statusDiv.textContent = '';
         const clientMap = groupJobsByClient(jobs);
-        for (const [client, jobs] of clientMap.entries()) {
-            const btn = document.createElement('button');
-            btn.className = 'client-name';
-            btn.textContent = `${client} (${jobs.length})`;
-            btn.onclick = () => openClientModal(client, jobs);
-            clientListDiv.appendChild(btn);
-        }
+        renderFilteredClientList(clientMap);
     }, (error) => {
         if (statusDiv) statusDiv.textContent = 'Error loading jobs: ' + error.message;
+    });
+}
+
+function renderFilteredClientList(clientMap) {
+    clientListDiv.innerHTML = '';
+    const searchInput = document.getElementById('customerSearchInput');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+    
+    for (const [client, jobs] of clientMap.entries()) {
+        // Filter by search term
+        if (searchTerm && !client.toLowerCase().includes(searchTerm)) {
+            continue;
+        }
+        const btn = document.createElement('button');
+        btn.className = 'client-name';
+        btn.textContent = `${client} (${jobs.length})`;
+        btn.onclick = () => openClientModal(client, jobs);
+        clientListDiv.appendChild(btn);
+    }
+}
+
+// Add search functionality
+const customerSearchInput = document.getElementById('customerSearchInput');
+if (customerSearchInput) {
+    customerSearchInput.addEventListener('input', () => {
+        if (selectedPerson) {
+            const jobs = allJobs.filter(job => job.assignedTo === selectedPerson && !isJobInRecycle(job));
+            const clientMap = groupJobsByClient(jobs);
+            renderFilteredClientList(clientMap);
+        }
     });
 }
 

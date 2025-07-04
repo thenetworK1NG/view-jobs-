@@ -94,16 +94,18 @@ a:hover {
 
 #currentUserDisplay {
   text-align: center;
-  font-size: 3rem;
+  font-size: 4rem;
   font-weight: 900;
   font-family: 'Arial Black', Arial, 'Poppins', 'Segoe UI', 'Roboto', sans-serif;
   background: linear-gradient(90deg, #7c3aed 0%, #38bdf8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 18px;
-  letter-spacing: 2px;
+  margin-bottom: 25px;
+  letter-spacing: 3px;
   text-transform: uppercase;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+  padding: 10px 0;
 }
 
 @media (max-width: 600px) {
