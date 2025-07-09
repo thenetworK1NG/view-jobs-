@@ -633,10 +633,15 @@ function generatePDF(job) {
     // Reset text color for content
     doc.setTextColor(0, 0, 0);
     
-    // Add date in top right
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${safeField(job.date)}`, 180, 15, { align: 'right' });
+    // Add lines for manual entry at the top left and top right
+    doc.setFontSize(14);
+    doc.setTextColor(80, 80, 80);
+    // Top left
+    doc.text('Invoice NO: ___________', 20, 45, { align: 'left' });
+    doc.text('Quote NO: ____________', 20, 52, { align: 'left' });
+    // Top right
+    doc.text('Order Number: __________', 150, 45, { align: 'left' });
+    doc.text('Jobcard No: ___________', 150, 52, { align: 'left' });
 
     // Add job details in the specified order with professional styling
     doc.setFontSize(12);
@@ -654,7 +659,8 @@ function generatePDF(job) {
         ['Deposit', job.deposit ? formatRand(job.deposit) : '—'],
         ['Balance Due', job.balanceDue ? formatRand(job.balanceDue) : '—'],
         ['Job Total', job.jobTotal ? formatRand(job.jobTotal) : '—'],
-        ['Assigned To', safeField(job.assignedTo)]
+        ['Assigned To', safeField(job.assignedTo)],
+        ['Job Card Created', safeField(job.date)]
     ];
 
     doc.autoTable({
@@ -671,7 +677,8 @@ function generatePDF(job) {
         bodyStyles: {
             fontSize: 11,
             lineColor: [200, 200, 200],
-            lineWidth: 0.1
+            lineWidth: 0.1,
+            textColor: [80, 80, 80]
         },
         alternateRowStyles: {
             fillColor: [248, 249, 250]
@@ -690,9 +697,15 @@ function generatePDF(job) {
     // Add footer
     const pageHeight = doc.internal.pageSize.height;
     doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text('Generated on: ' + new Date().toLocaleDateString(), 20, pageHeight - 20);
-    doc.text('Job Card System', 190, pageHeight - 20, { align: 'right' });
+    doc.setTextColor(80, 80, 80);
+    doc.text('Generated on: ' + new Date().toLocaleDateString(), 20, pageHeight - 35);
+    doc.text('Job Card System', 190, pageHeight - 35, { align: 'right' });
+
+    // Add manual fill-in fields at the bottom left
+    doc.setFontSize(12);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Client Signature: __________', 20, pageHeight - 55);
+    doc.text('Collection Date: ___________', 20, pageHeight - 48);
 
     // Save the PDF directly
     const filename = `JobCard_${(job.customerName || '').replace(/\s+/g, '_')}_${job.date || ''}.pdf`;
@@ -1067,4 +1080,11 @@ function checkAndShowWelcomeBack(user) {
             set(loginRef, now);
         }
     }, { once: true }); // Only check once, don't listen for changes
+}
+
+// Add event listener for Home button
+if (document.getElementById('homeBtn')) {
+    document.getElementById('homeBtn').addEventListener('click', function() {
+        window.open('https://thenetwork1ng.github.io/Office-view/', '_blank');
+    });
 } 
