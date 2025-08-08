@@ -274,6 +274,191 @@
         .delete-forever-btn:hover {
             background: #7a2323;
         }
+        .mark-done-btn {
+            background: #10b981;
+            color: #fff;
+            border: none;
+            padding: 7px 16px;
+            border-radius: 7px;
+            font-size: 0.98rem;
+            cursor: pointer;
+            transition: background 0.18s;
+        }
+        .mark-done-btn:hover {
+            background: #059669;
+        }
+        .mark-undone-btn {
+            background: #f59e0b;
+            color: #fff;
+            border: none;
+            padding: 7px 16px;
+            border-radius: 7px;
+            font-size: 0.98rem;
+            cursor: pointer;
+            transition: background 0.18s;
+        }
+        .mark-undone-btn:hover {
+            background: #d97706;
+        }
+        #openDoneJobsBtn svg {
+            transition: transform 0.15s;
+        }
+        #openDoneJobsBtn:hover svg {
+            transform: scale(1.15);
+            filter: drop-shadow(0 2px 6px #10b98133);
+        }
+        #doneJobsModal .a4-modal-content {
+            background: #f0fdf4;
+            border: 2px solid #10b98133;
+        }
+        #doneJobsModal h2 {
+            color: #10b981;
+        }
+        #doneJobsTable th, #doneJobsTable td {
+            padding: 7px 6px;
+            font-size: 0.97rem;
+            border-bottom: 1px solid #e0e6ed;
+            text-align: left;
+            word-break: break-word;
+            max-width: 120px;
+        }
+        #doneJobsTable th {
+            background: #dcfce7;
+            color: #10b981;
+            font-size: 1.01rem;
+        }
+        #doneJobsTable tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Testing Modal Styles */
+        .test-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 4000;
+        }
+        
+        .test-modal-content {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 800px;
+            width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 4px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .test-modal-content h2 {
+            margin: 0 0 20px 0;
+            color: #2d3a4b;
+            text-align: center;
+            font-size: 1.8rem;
+        }
+        
+        .close-test-modal {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            font-weight: bold;
+        }
+        
+        .close-test-modal:hover {
+            color: #000;
+        }
+        
+        .test-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        
+        .test-section h3 {
+            margin: 0 0 12px 0;
+            color: #4a5568;
+            font-size: 1.2rem;
+        }
+        
+        .test-section h4 {
+            margin: 0 0 8px 0;
+            color: #4a5568;
+            font-size: 1rem;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .test-btn {
+            background: #2d7ff9;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .test-btn:hover {
+            background: #1a5bb8;
+        }
+        
+        .test-btn.warning {
+            background: #f59e0b;
+        }
+        
+        .test-btn.warning:hover {
+            background: #d97706;
+        }
+        
+        .test-btn.danger {
+            background: #b23c3c;
+        }
+        
+        .test-btn.danger:hover {
+            background: #7a2323;
+        }
+        
+        .test-input {
+            padding: 6px 10px;
+            border: 1px solid #cfd8dc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            margin: 4px 8px 4px 0;
+        }
+        
+        .test-status {
+            background: #f0fdf4;
+            border: 1px solid #10b981;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #047857;
+        }
     </style>
 </head>
 <body>
@@ -281,7 +466,10 @@
         <div id="currentUserDisplay" style="text-align:center;font-size:1.2rem;font-weight:600;color:#7c3aed;margin-bottom:10px;"></div>
         <button class="change-person-btn" id="changePersonBtn" style="display:none;">Change Person</button>
         <h1>Clients
-            <button id="openRecycleBinBtn" title="View Trash" style="background:none;border:none;cursor:pointer;vertical-align:middle;margin-left:18px;">
+            <button id="openDoneJobsBtn" title="View Done Jobs" style="background:none;border:none;cursor:pointer;vertical-align:middle;margin-left:18px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12c0 5-4 9-9 9s-9-4-9-9 4-9 9-9c2.5 0 4.8 1 6.5 2.7"/></svg>
+            </button>
+            <button id="openRecycleBinBtn" title="View Trash" style="background:none;border:none;cursor:pointer;vertical-align:middle;margin-left:10px;">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b23c3c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
             </button>
             <button id="openLogBtn" title="View Log" style="background:none;border:none;cursor:pointer;vertical-align:middle;margin-left:10px;">
@@ -296,8 +484,106 @@
         <div id="searchContainer" style="margin-bottom:20px;display:none;">
             <input type="text" id="customerSearchInput" placeholder="Search customers by name..." style="width:100%;padding:12px;font-size:1rem;border-radius:8px;border:1.5px solid #7c3aed;">
         </div>
+        <div id="filterContainer" style="margin-bottom:20px;display:none;">
+            <div style="background:#f8fafc;border:1.5px solid #7c3aed;border-radius:10px;padding:16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <h3 style="margin:0;color:#7c3aed;font-size:1.1rem;">Filter Jobs</h3>
+                    <button id="toggleFiltersBtn" style="background:none;border:none;color:#7c3aed;cursor:pointer;font-size:1.2rem;">▼</button>
+                </div>
+                <div id="filterOptions" style="display:none;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label style="display:block;margin-bottom:4px;font-weight:600;color:#4a5568;">Date From:</label>
+                            <input type="date" id="dateFromFilter" style="width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="display:block;margin-bottom:4px;font-weight:600;color:#4a5568;">Date To:</label>
+                            <input type="date" id="dateToFilter" style="width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label style="display:block;margin-bottom:4px;font-weight:600;color:#4a5568;">Job Total Range:</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="number" id="minTotalFilter" placeholder="Min" style="width:50%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                                <input type="number" id="maxTotalFilter" placeholder="Max" style="width:50%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display:block;margin-bottom:4px;font-weight:600;color:#4a5568;">Sort By:</label>
+                            <select id="sortByFilter" style="width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                                <option value="date-desc">Date (Newest First)</option>
+                                <option value="date-asc">Date (Oldest First)</option>
+                                <option value="customer-asc">Customer Name (A-Z)</option>
+                                <option value="customer-desc">Customer Name (Z-A)</option>
+                                <option value="total-desc">Job Total (High to Low)</option>
+                                <option value="total-asc">Job Total (Low to High)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label style="display:block;margin-bottom:4px;font-weight:600;color:#4a5568;">Product Type:</label>
+                            <select id="productTypeFilter" style="width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                                <option value="">All Products</option>
+                                <option value="stickers">Stickers</option>
+                                <option value="banners">Banners/Canvas</option>
+                                <option value="boards">Boards</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;margin-bottom:4px;font-weight:600;color:#4a5568;">Payment Status:</label>
+                            <select id="paymentStatusFilter" style="width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                                <option value="">All</option>
+                                <option value="paid">Fully Paid</option>
+                                <option value="partial">Partially Paid</option>
+                                <option value="unpaid">Unpaid</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label style="display:block;margin-bottom:4px;font-weight:600;color:#4a5568;">Job Status:</label>
+                            <select id="jobStatusFilter" style="width:100%;padding:8px;border:1px solid #cfd8dc;border-radius:6px;">
+                                <option value="">All Jobs</option>
+                                <option value="overdue">Overdue Jobs (>3 days)</option>
+                                <option value="recent">Recent Jobs (≤3 days)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button id="applyFiltersBtn" style="background:#7c3aed;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;">Apply Filters</button>
+                        <button id="clearFiltersBtn" style="background:#6b7280;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;">Clear All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div id="clientList" class="client-list"></div>
         <div id="status"></div>
+    </div>
+    <div class="modal" id="doneJobsModal" style="display:none;align-items:center;justify-content:center;z-index:3000;">
+        <div class="a4-modal-content" style="max-width:1100px;width:98vw;position:relative;">
+            <button class="close-modal-btn" id="closeDoneJobsBtn" style="top:18px;right:32px;">&times;</button>
+            <h2 style="color:#10b981;text-align:center;">Done Jobs</h2>
+            <div class="table-responsive" style="overflow-x:auto;">
+                <table id="doneJobsTable" style="width:100%;margin-bottom:16px;">
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Date</th>
+                            <th>Customer Cell Number</th>
+                            <th>Description</th>
+                            <th>Assigned To</th>
+                            <th>Completed On</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="doneJobsStatus"></div>
+        </div>
     </div>
     <div class="modal" id="recycleBinModal" style="display:none;align-items:center;justify-content:center;z-index:3000;">
         <div class="a4-modal-content" style="max-width:1100px;width:98vw;position:relative;">
@@ -334,7 +620,33 @@
                 <option value="">Loading...</option>
             </select>
             <br>
+            <div id="passwordSection" style="display:none;margin-top:10px;">
+                <input type="password" id="userPasswordInput" placeholder="Enter password..." style="width:70%;padding:10px 16px;font-size:1rem;border-radius:6px;border:1px solid #cfd8dc;margin-bottom:10px;">
+                <div id="passwordStatus" style="color:#b23c3c;font-size:0.9rem;margin-bottom:10px;"></div>
+            </div>
             <button class="select-btn" id="selectPersonBtn">View Jobs</button>
+            <div style="margin-top:15px;">
+                <button class="select-btn" id="setPasswordBtn" style="background:#f59e0b;font-size:0.9rem;padding:8px 16px;">Set/Change Password</button>
+            </div>
+        </div>
+    </div>
+    <div class="person-modal" id="setPasswordModal" style="display:none;">
+        <div class="person-modal-content">
+            <h2>Set Password</h2>
+            <div id="setPasswordUser" style="margin-bottom:15px;font-weight:600;color:#7c3aed;"></div>
+            <div id="oldPasswordField" style="display:none;">
+                <input type="password" id="oldPasswordInput" placeholder="Enter current password..." style="width:70%;padding:10px 16px;font-size:1rem;border-radius:6px;border:1px solid #cfd8dc;margin-bottom:10px;">
+                <br>
+            </div>
+            <input type="password" id="newPasswordInput" placeholder="Enter new password..." style="width:70%;padding:10px 16px;font-size:1rem;border-radius:6px;border:1px solid #cfd8dc;margin-bottom:10px;">
+            <br>
+            <input type="password" id="confirmPasswordInput" placeholder="Confirm password..." style="width:70%;padding:10px 16px;font-size:1rem;border-radius:6px;border:1px solid #cfd8dc;margin-bottom:10px;">
+            <div id="setPasswordStatus" style="color:#b23c3c;font-size:0.9rem;margin-bottom:10px;"></div>
+            <div style="margin-top:10px;">
+                <button class="select-btn" id="savePasswordBtn">Save Password</button>
+                <button class="select-btn" id="removePasswordBtn" style="background:#b23c3c;margin-left:10px;">Remove Password</button>
+                <button class="select-btn" id="cancelPasswordBtn" style="background:#888;margin-left:10px;">Cancel</button>
+            </div>
         </div>
     </div>
     <div class="modal" id="descModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;z-index:2000;">
@@ -380,6 +692,119 @@
             <div id="logStatus"></div>
         </div>
     </div>
+
+    <!-- Testing Modal -->
+    <div id="testModal" class="test-modal">
+        <div class="test-modal-content">
+            <button class="close-test-modal" onclick="document.getElementById('testModal').style.display='none'">&times;</button>
+            <h2>🧪 Testing Suite</h2>
+            <div id="testStatus" class="test-status">Press 'T' to toggle this testing menu. Ready for testing...</div>
+            
+            <div class="test-section">
+                <h3>📅 Date Testing</h3>
+                <p style="font-size:0.9rem;margin-bottom:12px;">Create jobs with specific dates to test overdue functionality:</p>
+                <div class="test-grid">
+                    <button class="test-btn" onclick="createJobToday()">Create Today's Job</button>
+                    <button class="test-btn warning" onclick="createJob3DaysOld()">Create 3-Day Old Job</button>
+                    <button class="test-btn danger" onclick="createJob5DaysOld()">Create 5-Day Old Job</button>
+                    <button class="test-btn danger" onclick="createJobWeekOld()">Create Week Old Job</button>
+                </div>
+            </div>
+            
+            <div class="test-section">
+                <h3>👤 User Testing</h3>
+                <p style="font-size:0.9rem;margin-bottom:12px;">Quick user switching and job assignment:</p>
+                <div class="test-grid">
+                    <button class="test-btn" onclick="quickSwitchUser('Andre')">Switch to Andre</button>
+                    <button class="test-btn" onclick="quickSwitchUser('Francois')">Switch to Francois</button>
+                    <button class="test-btn" onclick="quickSwitchUser('Yolandie')">Switch to Yolandie</button>
+                    <button class="test-btn" onclick="quickSwitchUser('Neil')">Switch to Neil</button>
+                </div>
+            </div>
+            
+            <div class="test-section">
+                <h3>🗂️ Data Management</h3>
+                <p style="font-size:0.9rem;margin-bottom:12px;">Manage test data and filters:</p>
+                <div class="test-grid">
+                    <button class="test-btn" onclick="createBulkTestJobs()">Create 10 Random Jobs</button>
+                    <button class="test-btn warning" onclick="clearAllFilters()">Clear All Filters</button>
+                    <button class="test-btn danger" onclick="clearTestData()">Clear Test Jobs</button>
+                </div>
+            </div>
+            
+            <div class="test-section">
+                <h3>🎯 Filter Testing</h3>
+                <p style="font-size:0.9rem;margin-bottom:12px;">Test specific filter combinations:</p>
+                <div class="test-grid">
+                    <button class="test-btn" onclick="testOverdueFilter()">Show Only Overdue</button>
+                    <button class="test-btn" onclick="testRecentFilter()">Show Only Recent</button>
+                    <button class="test-btn" onclick="testPaymentFilter('unpaid')">Show Unpaid Jobs</button>
+                    <button class="test-btn" onclick="testProductFilter('stickers')">Show Sticker Jobs</button>
+                </div>
+            </div>
+            
+            <div class="test-section">
+                <h3>🔧 Advanced Testing</h3>
+                <p style="font-size:0.9rem;margin-bottom:12px;">Advanced testing utilities:</p>
+                <input type="number" id="customDaysOld" class="test-input" placeholder="Days old" min="0" max="30" value="4">
+                <button class="test-btn" onclick="createCustomDateJob()">Create Custom Date Job</button>
+                <br>
+                <button class="test-btn warning" onclick="simulateOverdueScenario()">Simulate Overdue Scenario</button>
+                <button class="test-btn" onclick="generateTestReport()">Generate Test Report</button>
+            </div>
+            
+            <div class="test-section">
+                <h3>🔐 Admin Password Management</h3>
+                <p style="font-size:0.9rem;margin-bottom:12px;">Complete password administration and user management:</p>
+                
+                <!-- User Status Overview -->
+                <div id="userPasswordOverview" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:16px;font-size:0.9rem;">
+                    <div style="font-weight:600;margin-bottom:8px;color:#4a5568;">User Password Status:</div>
+                    <div id="passwordStatusList">Loading...</div>
+                    <button class="test-btn" onclick="refreshPasswordOverview()" style="margin-top:8px;padding:4px 8px;font-size:0.8rem;">Refresh Status</button>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div style="margin-bottom:16px;">
+                    <h4 style="margin:0 0 8px 0;color:#4a5568;font-size:0.95rem;">Quick Actions:</h4>
+                    <div class="test-grid">
+                        <button class="test-btn" onclick="showUsersWithPasswords()">Show Protected Users</button>
+                        <button class="test-btn warning" onclick="showUsersWithoutPasswords()">Show Unprotected Users</button>
+                        <button class="test-btn" onclick="viewAllUserPasswordsDetailed()">View All Details</button>
+                        <button class="test-btn danger" onclick="resetAllPasswords()">Reset All Passwords</button>
+                    </div>
+                </div>
+                
+                <!-- Individual User Management -->
+                <div style="border-top:1px solid #e2e8f0;padding-top:16px;">
+                    <h4 style="margin:0 0 8px 0;color:#4a5568;font-size:0.95rem;">Individual User Management:</h4>
+                    <select id="adminTargetUserSelect" class="test-input" style="width:200px;margin-bottom:8px;">
+                        <option value="">Select user to manage...</option>
+                    </select>
+                    <br>
+                    <input type="password" id="adminNewPassword" class="test-input" placeholder="New password" style="width:200px;">
+                    <br>
+                    <div class="test-grid">
+                        <button class="test-btn" onclick="changeUserPasswordAdminSelect()">Set/Change Password</button>
+                        <button class="test-btn warning" onclick="resetUserPasswordAdminSelect()">Remove Password</button>
+                        <button class="test-btn" onclick="viewUserPasswordDetails()">View User Details</button>
+                    </div>
+                </div>
+                
+                <!-- Legacy Input Method -->
+                <div style="border-top:1px solid #e2e8f0;padding-top:16px;margin-top:16px;">
+                    <h4 style="margin:0 0 8px 0;color:#4a5568;font-size:0.95rem;">Manual Input Method:</h4>
+                    <input type="text" id="adminTargetUser" class="test-input" placeholder="Type username manually..." style="width:200px;">
+                    <br>
+                    <div class="test-grid">
+                        <button class="test-btn" onclick="changeUserPasswordAdmin()">Change Password</button>
+                        <button class="test-btn warning" onclick="resetUserPasswordAdmin()">Reset Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="view-jobs.js"></script>
 </body>
 </html> 

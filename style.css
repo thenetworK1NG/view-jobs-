@@ -383,3 +383,531 @@ a:hover {
 .popup-notification.fade-out {
   animation: slideOutNotification 0.5s ease-in forwards;
 } 
+
+/* Filter styles */
+#filterContainer {
+    animation: slideDown 0.3s ease-out;
+}
+
+#filterOptions {
+    transition: all 0.3s ease;
+}
+
+#toggleFiltersBtn {
+    transition: transform 0.2s ease;
+}
+
+#toggleFiltersBtn:hover {
+    transform: scale(1.1);
+}
+
+.filter-section {
+    background: #f8fafc;
+    border: 1.5px solid var(--primary-color);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.filter-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #cfd8dc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.1);
+}
+
+.filter-label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 0.9rem;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.filter-btn.primary {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.filter-btn.primary:hover {
+    background: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+.filter-btn.secondary {
+    background: #6b7280;
+    color: #fff;
+}
+
+.filter-btn.secondary:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive design for filters */
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .filter-buttons {
+        flex-direction: column;
+    }
+    
+    .filter-btn {
+        width: 100%;
+    }
+}
+
+/* Overdue job warning styles */
+.overdue-warning {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 4px 8px;
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+    animation: pulseWarning 2s infinite;
+}
+
+.overdue-warning-icon {
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
+    fill: currentColor;
+}
+
+@keyframes pulseWarning {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
+}
+
+.client-name.has-overdue {
+    border-left: 4px solid #dc2626;
+    box-shadow: 0 4px 15px rgba(var(--primary-color-rgb), 0.15), 0 0 0 1px rgba(220, 38, 38, 0.2);
+}
+
+.overdue-tooltip {
+    position: relative;
+}
+
+.overdue-tooltip:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 5px;
+}
+
+.overdue-tooltip:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #1f2937;
+    margin-bottom: 1px;
+}
+
+/* Testing Modal Styles */
+.test-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(5px);
+}
+
+.test-modal-content {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 600px;
+    width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    color: white;
+    position: relative;
+}
+
+.test-modal h2 {
+    color: white;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+}
+
+.test-section {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(10px);
+}
+
+.test-section h3 {
+    color: #fbbf24;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+}
+
+.test-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 4px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.test-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.test-btn.danger {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.test-btn.danger:hover {
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.test-btn.warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.test-btn.warning:hover {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.test-input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: white;
+    margin: 4px;
+    font-size: 0.9rem;
+}
+
+.test-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.test-status {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 8px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.close-test-modal {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+}
+
+.close-test-modal:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.test-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Admin Debug Modal Styles */
+.admin-debug-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.admin-debug-modal-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 900px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 2px solid #dc2626;
+    color: white;
+    position: relative;
+}
+
+.close-admin-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 30px;
+    color: #dc2626;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.close-admin-modal:hover {
+    background: rgba(220, 38, 38, 0.2);
+    transform: rotate(90deg);
+}
+
+.admin-modal {
+    max-width: 800px !important;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.admin-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    border-left: 4px solid #dc2626;
+}
+
+.admin-section h3 {
+    margin: 0 0 15px 0;
+    color: #dc2626;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.admin-grid {
+    display: grid;
+    gap: 15px;
+}
+
+.admin-user-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.password-status {
+    font-size: 0.85rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.password-status.has-password {
+    background: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+    border: 1px solid #28a745;
+}
+
+.password-status.no-password {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+    border: 1px solid #dc3545;
+}
+
+.admin-user-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.admin-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.admin-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.reset-btn {
+    background: #ffc107;
+    color: #212529;
+}
+
+.reset-btn:hover:not(:disabled) {
+    background: #e0a800;
+    transform: translateY(-1px);
+}
+
+.remove-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.remove-btn:hover:not(:disabled) {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.danger-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.danger-btn:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.info-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.info-btn:hover {
+    background: #138496;
+    transform: translateY(-1px);
+}
+
+.warning-btn {
+    background: #fd7e14;
+    color: white;
+}
+
+.warning-btn:hover {
+    background: #e8650b;
+    transform: translateY(-1px);
+}
+
+.debug-info {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.debug-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.debug-item:last-child {
+    border-bottom: none;
+}
+
+.debug-item strong {
+    color: #ffc107;
+}
