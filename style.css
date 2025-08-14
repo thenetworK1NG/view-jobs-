@@ -911,3 +911,35 @@ a:hover {
 .debug-item strong {
     color: #ffc107;
 }
+
+/* Kanboard "Move to" buttons: highlight current column */
+.kb-move-col-btn {
+  position: relative;
+}
+.kb-move-col-btn.is-current {
+  outline: 4px solid #f59e0b; /* thicker amber ring */
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3), 0 8px 22px rgba(245, 158, 11, 0.35);
+  transform: translateY(-2px) scale(1.03);
+  animation: kbCurrentPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes kbCurrentPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), 0 8px 22px rgba(245, 158, 11, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.4), 0 10px 26px rgba(245, 158, 11, 0.45); }
+}
+
+/* Floating badge for the active column */
+.kb-current-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #f59e0b;
+  color: #111827;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  box-shadow: 0 3px 10px rgba(245, 158, 11, 0.45);
+  border: 2px solid #fff;
+}

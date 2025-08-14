@@ -767,46 +767,45 @@ function setRecycleBin(arr) {
     localStorage.setItem('recycleBin', JSON.stringify(arr));
 }
 
+// SHARED GLOBAL DONE (Firebase-backed)
 function getDoneJobs() {
-    let doneJobs = localStorage.getItem('doneJobs');
-    if (!doneJobs) return [];
-    try { return JSON.parse(doneJobs); } catch { return []; }
+    // Build a done list from Firebase-loaded jobs
+    return allJobs
+        .filter(j => !!j.done)
+        .map(j => ({ jobId: j._key, job: j, completedOn: j.doneAt || 0 }));
 }
-function setDoneJobs(arr) {
-    localStorage.setItem('doneJobs', JSON.stringify(arr));
+function setDoneJobs(_) {
+    // No-op: done state is stored in Firebase now
 }
 function isJobDone(job) {
-    const doneJobs = getDoneJobs();
-    return doneJobs.some(d => d.jobId === job._key);
+    return !!job.done;
 }
 function markJobAsDone(job) {
-    const doneJobs = getDoneJobs();
-    // Check if already marked as done
-    if (!doneJobs.some(d => d.jobId === job._key)) {
-        doneJobs.push({
-            jobId: job._key,
-            job,
-            completedOn: Date.now()
+    const updatedJob = { ...job, done: true, doneAt: Date.now(), doneBy: selectedPerson || job.assignedTo || "" };
+    // Persist to Firebase so all devices see it and it hides globally
+    return set(ref(database, 'jobCards/' + job._key), updatedJob)
+        .then(() => {
+            // Update in-memory state too
+            const idx = allJobs.findIndex(j => j._key === job._key);
+            if (idx !== -1) allJobs[idx] = updatedJob;
         });
-        setDoneJobs(doneJobs);
-    }
 }
 function markJobAsUndone(jobId) {
-    let doneJobs = getDoneJobs();
-    doneJobs = doneJobs.filter(d => d.jobId !== jobId);
-    setDoneJobs(doneJobs);
+    const job = allJobs.find(j => j._key === jobId);
+    if (!job) return;
+    const updatedJob = { ...job };
+    delete updatedJob.done;
+    delete updatedJob.doneAt;
+    delete updatedJob.doneBy;
+    return set(ref(database, 'jobCards/' + jobId), updatedJob)
+        .then(() => {
+            const idx = allJobs.findIndex(j => j._key === jobId);
+            if (idx !== -1) allJobs[idx] = updatedJob;
+        });
 }
 function cleanOldDoneJobs() {
-    let doneJobs = getDoneJobs();
-    const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000; // 5 hours in milliseconds
-    
-    // Find jobs that were completed more than 5 hours ago
-    const toMove = doneJobs.filter(d => d.completedOn < fiveHoursAgo);
-    
-    // These jobs are automatically moved to a permanent "completed" state
-    // For now, they stay in the done jobs list but we could implement a separate archive
-    
-    return doneJobs; // Return all for now, can be modified later for archiving
+    // Keeping hook for future archiving; Firebase is the source of truth
+    return getDoneJobs();
 }
 
 function addToRecycleBin(job) {
@@ -943,27 +942,27 @@ function renderRecycleBin() {
 
 function renderDoneJobs() {
     cleanOldDoneJobs();
+    // Build from Firebase-backed allJobs with done flag
     const doneJobs = getDoneJobs();
     const doneJobsTable = document.getElementById('doneJobsTable');
     const doneJobsStatus = document.getElementById('doneJobsStatus');
     const tbody = doneJobsTable.querySelector('tbody');
     tbody.innerHTML = '';
-    
-    // Filter done jobs to show only jobs for the currently selected user
-    const userDoneJobs = selectedPerson ? doneJobs.filter(d => d.job && d.job.assignedTo === selectedPerson) : [];
-    
-    if (userDoneJobs.length === 0) {
+    // Global Done: show all done jobs regardless of selected user
+    const globalDoneJobs = doneJobs;
+
+    if (globalDoneJobs.length === 0) {
         doneJobsTable.style.display = 'none';
-        doneJobsStatus.textContent = selectedPerson ? `No completed jobs found for ${selectedPerson}.` : 'Please select a user to view their completed jobs.';
+        doneJobsStatus.textContent = 'No completed jobs found.';
         return;
     }
     doneJobsTable.style.display = '';
     doneJobsStatus.textContent = '';
-    
+
     // Sort by completion time (most recent first)
-    userDoneJobs.sort((a, b) => b.completedOn - a.completedOn);
-    
-    userDoneJobs.forEach(d => {
+    globalDoneJobs.sort((a, b) => b.completedOn - a.completedOn);
+
+    globalDoneJobs.forEach(d => {
         const fiveHoursAgo = Date.now() - 5 * 60 * 60 * 1000;
         const canMarkUndone = d.completedOn > fiveHoursAgo;
         const timeAgo = Math.floor((Date.now() - d.completedOn) / (60 * 60 * 1000)); // hours ago
@@ -975,7 +974,7 @@ function renderDoneJobs() {
             <td>${safeField(d.job.customerCell)}</td>
             <td>${safeField((d.job.jobDescription || '').slice(0,40) + ((d.job.jobDescription||'').length>40?'...':''))}</td>
             <td>${safeField(d.job.assignedTo)}</td>
-            <td>${new Date(d.completedOn).toLocaleString()} (${timeAgo}h ago)</td>
+            <td>${new Date(d.completedOn).toLocaleString()} (${timeAgo}h ago)${d.job.doneBy ? ` by ${d.job.doneBy}` : ''}</td>
             <td>
                 ${canMarkUndone ? `<button class="mark-undone-btn" data-jobid="${d.jobId}">Mark as Undone</button>` : '<span style="color:#888;">Auto-archived (>5h)</span>'}
             </td>
@@ -987,12 +986,12 @@ function renderDoneJobs() {
     document.querySelectorAll('.mark-undone-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const jobId = e.target.dataset.jobid;
-            markJobAsUndone(jobId);
-            const doneJobs = getDoneJobs();
-            const entry = doneJobs.find(d => d.jobId === jobId);
-            writeLog({user: entry && entry.job ? entry.job.assignedTo : '—', action: 'marked as undone', jobName: entry && entry.job ? entry.job.customerName : jobId});
-            renderClientList();
-            renderDoneJobs();
+            Promise.resolve(markJobAsUndone(jobId)).then(() => {
+                const job = allJobs.find(j => j._key === jobId);
+                writeLog({user: (job && job.assignedTo) || selectedPerson || '—', action: 'marked as undone', jobName: (job && job.customerName) || jobId});
+                renderClientList();
+                renderDoneJobs();
+            });
         });
     });
 }
@@ -1197,11 +1196,12 @@ document.body.addEventListener('click', function(e) {
         const jobId = e.target.dataset.jobid;
         const job = allJobs.find(j => j._key === jobId);
         if (!job) return;
-        markJobAsDone(job);
-        clientModal.style.display = 'none';
-        writeLog({user: job.assignedTo, action: 'marked as done', jobName: job.customerName});
-        renderClientList();
-        cleanOldDoneJobs(); // Clean up old done jobs when adding new ones
+        Promise.resolve(markJobAsDone(job)).then(() => {
+            clientModal.style.display = 'none';
+            writeLog({user: (selectedPerson || job.assignedTo), action: 'marked as done', jobName: job.customerName});
+            renderClientList();
+            cleanOldDoneJobs(); // Hook retained for possible archiving
+        });
     }
     if (e.target.classList.contains('delete-job-btn')) {
         const jobId = e.target.dataset.jobid;
@@ -1624,7 +1624,7 @@ function renderJobsForPerson(person) {
             }
         }
         // Now render the filtered jobs for the selected person
-        let jobs = allJobs.filter(job => job.assignedTo === person && !isJobInRecycle(job) && !isJobDone(job));
+    let jobs = allJobs.filter(job => job.assignedTo === person && !isJobInRecycle(job) && !isJobDone(job));
         
         // Apply filters
         jobs = applyFiltersToJobs(jobs);
@@ -2724,6 +2724,8 @@ async function initKanboardSection(job, force = false) {
         section.dataset.taskId = task.id || job.apiTaskId;
         section.dataset.swimlaneId = task.swimlane_id || 1;
     section.dataset.columnId = task.column_id || '';
+    // Highlight current column button
+    highlightCurrentKanboardButton(section, Number(task.column_id));
     } catch (err) {
         // Keep silent in UI; optionally console error
         console.error('Kanboard load error:', err);
@@ -2743,8 +2745,12 @@ async function handleKanboardMove(job, overrideColumnId) {
     }
     try {
         const ok = await kbMoveTask({ project_id, task_id, column_id, position, swimlane_id });
-    if (ok) {
+        if (ok) {
             showPopupNotification('Task moved in Kanboard', 'success', 2500);
+            // Update stored column and highlight
+            section.dataset.columnId = String(column_id);
+            highlightCurrentKanboardButton(section, column_id);
+            // Also refresh from server in background to keep snapshot fresh
             await initKanboardSection(job, true);
         } else {
             showPopupNotification('Failed to move task (API returned false)', 'danger', 3000);
@@ -2752,5 +2758,27 @@ async function handleKanboardMove(job, overrideColumnId) {
     } catch (err) {
         console.error('Kanboard move error:', err);
         showPopupNotification('Error moving task: ' + (err.message || err), 'danger', 3500);
+    }
+}
+
+// Helper: outline the button for the current Kanboard column
+function highlightCurrentKanboardButton(sectionEl, currentColumnId) {
+    try {
+        const buttons = sectionEl.querySelectorAll('.kb-move-col-btn');
+        buttons.forEach(btn => {
+            btn.classList.remove('is-current');
+            const badge = btn.querySelector('.kb-current-badge');
+            if (badge) badge.remove();
+        });
+        const active = sectionEl.querySelector(`.kb-move-col-btn[data-col="${currentColumnId}"]`);
+        if (active) {
+            active.classList.add('is-current');
+            const badge = document.createElement('span');
+            badge.className = 'kb-current-badge';
+            badge.textContent = 'CURRENT';
+            active.appendChild(badge);
+        }
+    } catch (_) {
+        // no-op
     }
 }
