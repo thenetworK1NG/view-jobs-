@@ -56,6 +56,34 @@ let currentFilters = {
 };
 const allowedPeople = ["Andre", "Francois", "Yolandie", "Neil"];
 
+// Kanboard JSON-RPC integration (same API/auth as SearchTask.html)
+const KB_BASE_URL = 'http://board.maphefosigns.co.za/jsonrpc.php';
+const KB_AUTH = 'Basic ' + btoa('jsonrpc:a328ecd9eef82243d443f6c0e3d9622cbe929e7d1447df8d8de575dc6ba2');
+const KB_USE_CORS_PROXY = true;
+const KB_CORS_PROXY_PREFIX = 'https://corsproxy.io/?';
+
+async function kbRpc(method, params) {
+    const url = KB_USE_CORS_PROXY ? (KB_CORS_PROXY_PREFIX + encodeURIComponent(KB_BASE_URL)) : KB_BASE_URL;
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': KB_AUTH
+    };
+    const payload = { jsonrpc: '2.0', method, id: Date.now(), params };
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error((data.error.message || 'RPC error') + (data.error.data ? ' - ' + JSON.stringify(data.error.data) : ''));
+    return data.result;
+}
+
+async function kbGetTask(taskId) {
+    return kbRpc('getTask', { task_id: Number(taskId) });
+}
+
+async function kbMoveTask({ project_id, task_id, column_id, position, swimlane_id }) {
+    return kbRpc('moveTaskPosition', { project_id, task_id, column_id, position, swimlane_id });
+}
+
 // Password management functions (using Firebase)
 let userPasswordsCache = {};
 let passwordsLoaded = false;
@@ -1101,6 +1129,21 @@ function openClientModal(client, jobs) {
                 <tr><th>Assigned To</th><td>${safeField(job.assignedTo)}</td></tr>
                 ${job.apiTaskId ? `<tr><th>API Task ID</th><td>${job.apiTaskId}</td></tr>` : ''}
             </table>
+            ${job.apiTaskId ? `
+            <div class='kb-section' id='kb-${jobId}' style='margin-top:10px;padding:10px;border:1px dashed #cbd5e1;border-radius:8px;'>
+                <div style='font-weight:600;color:#374151;margin-bottom:6px;'>Move to</div>
+                <div class='kb-move-grid' style='display:flex;flex-wrap:wrap;gap:6px;'>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='1' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>backlog</button>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='2' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>new</button>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='5' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>pending action</button>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='3' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>design</button>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='8' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>queue for printing</button>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='6' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>printing</button>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='7' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>factory</button>
+                    <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='4' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>done</button>
+                </div>
+            </div>
+            ` : ''}
             <button class='edit-job-btn' data-jobid='${jobId}' style='margin-top:12px;background:#7c3aed;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Edit</button>
             <button class='send-along-btn' data-jobid='${jobId}' style='margin-top:12px;background:#38bdf8;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Send It Along</button>
             <button class='save-pdf-btn' data-jobid='${jobId}' style='margin-top:12px;background:#10b981;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Save as PDF</button>
@@ -1110,6 +1153,11 @@ function openClientModal(client, jobs) {
     });
     clientModalContent.innerHTML = html;
     clientModal.style.display = 'flex';
+
+    // Initialize Kanboard sections for jobs that have API Task IDs
+    jobs.forEach(job => {
+        if (job.apiTaskId) initKanboardSection(job);
+    });
 }
 
 document.body.addEventListener('click', function(e) {
@@ -1176,6 +1224,25 @@ document.body.addEventListener('click', function(e) {
         writeLog({user: job.assignedTo, action: 'deleted', jobName: job.customerName});
         renderClientList();
         renderRecycleBin();
+    }
+
+    // Kanboard move: column button
+    if (e.target.classList.contains('kb-move-col-btn')) {
+        const jobId = e.target.dataset.jobid;
+        const job = allJobs.find(j => j._key === jobId);
+        if (!job || !job.apiTaskId) return;
+        const section = document.getElementById(`kb-${jobId}`);
+        if (!section) return;
+        // Ensure task snapshot exists; if missing, (re)load first then move
+        const doMove = async () => {
+            const column_id = Number(e.target.dataset.col);
+            await handleKanboardMove(job, column_id);
+        };
+        if (!section.dataset.projectId || !section.dataset.swimlaneId) {
+            initKanboardSection(job, true).then(doMove).catch(doMove);
+        } else {
+            doMove();
+        }
     }
 });
 
@@ -1390,10 +1457,10 @@ function generatePDF(job) {
     doc.setFont('helvetica', 'bold');
     doc.text('ADDITIONAL NOTES:', 20, notesY);
     
-    // Add 6 lines for additional notes
+    // Add 5 lines for additional notes (avoid overlap with signature)
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= 5; i++) {
         const lineY = notesY + (i * 8) + 5;
         doc.text(`${i}. _________________________________________________________________________________________________________________`, 20, lineY);
     }
@@ -2643,3 +2710,47 @@ window.resetAllPasswords = resetAllPasswords;
 window.changeUserPasswordAdminSelect = changeUserPasswordAdminSelect;
 window.resetUserPasswordAdminSelect = resetUserPasswordAdminSelect;
 window.viewUserPasswordDetails = viewUserPasswordDetails; 
+
+// -------- Kanboard helpers (render + actions) --------
+async function initKanboardSection(job, force = false) {
+    const section = document.getElementById(`kb-${job._key}`);
+    if (!section) return;
+    try {
+        const task = await kbGetTask(job.apiTaskId);
+        // Prefill column select
+        const colInput = document.getElementById(`kb-col-${job._key}`);
+        // Store latest task snapshot for move
+        section.dataset.projectId = task.project_id;
+        section.dataset.taskId = task.id || job.apiTaskId;
+        section.dataset.swimlaneId = task.swimlane_id || 1;
+    section.dataset.columnId = task.column_id || '';
+    } catch (err) {
+        // Keep silent in UI; optionally console error
+        console.error('Kanboard load error:', err);
+    }
+}
+
+async function handleKanboardMove(job, overrideColumnId) {
+    const section = document.getElementById(`kb-${job._key}`);
+    if (!section) return;
+    const project_id = Number(section.dataset.projectId);
+    const task_id = Number(section.dataset.taskId || job.apiTaskId);
+    const column_id = Number(overrideColumnId || section.dataset.columnId || 0);
+    const position = 1; // default to top
+    const swimlane_id = Number(section.dataset.swimlaneId || 1);
+    if ([project_id, task_id, column_id, position, swimlane_id].some(v => !v || isNaN(v) || v <= 0)) {
+        return;
+    }
+    try {
+        const ok = await kbMoveTask({ project_id, task_id, column_id, position, swimlane_id });
+    if (ok) {
+            showPopupNotification('Task moved in Kanboard', 'success', 2500);
+            await initKanboardSection(job, true);
+        } else {
+            showPopupNotification('Failed to move task (API returned false)', 'danger', 3000);
+        }
+    } catch (err) {
+        console.error('Kanboard move error:', err);
+        showPopupNotification('Error moving task: ' + (err.message || err), 'danger', 3500);
+    }
+}
