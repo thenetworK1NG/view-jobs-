@@ -943,3 +943,12 @@ a:hover {
   box-shadow: 0 3px 10px rgba(245, 158, 11, 0.45);
   border: 2px solid #fff;
 }
+
+/* File manager mini box */
+.kb-files-section table th,
+.kb-files-section table td {
+  font-size: 0.92rem;
+}
+.kb-files-section table tbody tr:hover {
+  background: #f1f5f9;
+}

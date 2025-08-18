@@ -84,21 +84,6 @@ async function kbMoveTask({ project_id, task_id, column_id, position, swimlane_i
     return kbRpc('moveTaskPosition', { project_id, task_id, column_id, position, swimlane_id });
 }
 
-// Kanboard file management helpers
-async function kbGetAllTaskFiles(task_id) {
-    return kbRpc('getAllTaskFiles', { task_id: Number(task_id) });
-}
-
-async function kbCreateTaskFile(project_id, task_id, fileName, base64Data) {
-    // Note: Kanboard expects positional params for createTaskFile
-    return kbRpc('createTaskFile', [Number(project_id), Number(task_id), String(fileName), String(base64Data)]);
-}
-
-async function kbDownloadTaskFile(fileId) {
-    // Returns base64-encoded content
-    return kbRpc('downloadTaskFile', [Number(fileId)]);
-}
-
 // Password management functions (using Firebase)
 let userPasswordsCache = {};
 let passwordsLoaded = false;
@@ -1157,18 +1142,20 @@ function openClientModal(client, jobs) {
                     <button class='kb-move-col-btn' data-jobid='${jobId}' data-col='4' style='background:#7C3AED;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>done</button>
                 </div>
             </div>
-            <div class='kb-files' id='kb-files-${jobId}' style='margin-top:10px;padding:10px;border:1px dashed #cbd5e1;border-radius:8px;'>
-                <div style='font-weight:600;color:#374151;margin-bottom:6px;display:flex;align-items:center;gap:8px;'>
-                    <span>Task files</span>
-                    <button class='kb-files-refresh-btn' data-jobid='${jobId}' style='background:#64748b;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;'>Refresh</button>
+            <div class='kb-files-section' id='kb-files-${jobId}' style='margin-top:10px;padding:10px;border:1px dashed #94a3b8;border-radius:8px;background:#f8fafc;'>
+                <div style='display:flex;align-items:center;justify-content:space-between;'>
+                    <div style='font-weight:600;color:#374151;'>Files</div>
+                    <div>
+                        <button class='kb-files-refresh-btn' data-jobid='${jobId}' style='background:#2563eb;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;margin-right:6px;'>Show/Refresh</button>
+                        <label style='display:inline-block;vertical-align:middle;'>
+                            <input type='file' class='kb-file-input' data-jobid='${jobId}' style='display:none;' />
+                            <span class='kb-file-select' data-jobid='${jobId}' style='background:#7c3aed;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;'>Choose File</span>
+                        </label>
+                        <button class='kb-file-upload-btn' data-jobid='${jobId}' style='background:#10b981;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;margin-left:6px;' disabled>Upload</button>
+                    </div>
                 </div>
-                <div class='kb-files-list' id='kb-files-list-${jobId}' style='font-size:0.9rem;color:#475569;'>Loading…</div>
-                <div style='margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;'>
-                    <input type='file' id='kb-file-input-${jobId}' style='display:none' />
-                    <button class='kb-file-choose-btn' data-jobid='${jobId}' style='background:#0ea5e9;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>Choose file</button>
-                    <span id='kb-file-name-${jobId}' style='color:#334155;'></span>
-                    <button class='kb-file-upload-btn' data-jobid='${jobId}' style='background:#0d9488;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;'>Upload to task</button>
-                </div>
+                <div class='kb-file-selected' id='kb-file-selected-${jobId}' style='color:#6b7280;font-size:0.9rem;margin-top:6px;'></div>
+                <div class='kb-files-result' id='kb-files-result-${jobId}' style='margin-top:8px;'></div>
             </div>
             ` : ''}
             <button class='edit-job-btn' data-jobid='${jobId}' style='margin-top:12px;background:#7c3aed;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Edit</button>
@@ -1183,10 +1170,7 @@ function openClientModal(client, jobs) {
 
     // Initialize Kanboard sections for jobs that have API Task IDs
     jobs.forEach(job => {
-        if (job.apiTaskId) {
-            initKanboardSection(job);
-            initKanboardFilesSection(job);
-        }
+        if (job.apiTaskId) initKanboardSection(job);
     });
 }
 
@@ -1216,37 +1200,6 @@ document.body.addEventListener('click', function(e) {
         const job = allJobs.find(j => j._key === jobId);
         if (!job) return;
         openSendAlongModal(job);
-    }
-    // KB Files: choose file
-    if (e.target.classList.contains('kb-file-choose-btn')) {
-        const jobId = e.target.dataset.jobid;
-        const input = document.getElementById(`kb-file-input-${jobId}`);
-        const nameSpan = document.getElementById(`kb-file-name-${jobId}`);
-        if (!input) return;
-        input.onchange = () => {
-            nameSpan.textContent = input.files && input.files[0] ? input.files[0].name : '';
-        };
-        input.click();
-    }
-    // KB Files: upload file
-    if (e.target.classList.contains('kb-file-upload-btn')) {
-        const jobId = e.target.dataset.jobid;
-        const job = allJobs.find(j => j._key === jobId);
-        if (!job || !job.apiTaskId) return;
-        uploadFileToKanboard(job);
-    }
-    // KB Files: refresh list
-    if (e.target.classList.contains('kb-files-refresh-btn')) {
-        const jobId = e.target.dataset.jobid;
-        const job = allJobs.find(j => j._key === jobId);
-        if (!job || !job.apiTaskId) return;
-        renderKanboardFilesList(job);
-    }
-    // KB Files: download single file (delegated from dynamic list)
-    if (e.target.classList.contains('kb-file-download-btn')) {
-        const fileId = e.target.dataset.fileid;
-        const fileName = e.target.dataset.filename || 'download';
-        downloadKanboardFile(fileId, fileName);
     }
     if (e.target.classList.contains('save-pdf-btn')) {
         const jobId = e.target.dataset.jobid;
@@ -2805,37 +2758,6 @@ async function handleKanboardMove(job, overrideColumnId) {
     if ([project_id, task_id, column_id, position, swimlane_id].some(v => !v || isNaN(v) || v <= 0)) {
         return;
     }
-    // Guard: moving to Queue for printing (col 8) without artwork from specific stages triggers confirmation
-    if (column_id === 8) {
-        try {
-            // Determine current column
-            let currentCol = Number(section.dataset.columnId || 0);
-            if (!currentCol) {
-                const task = await kbGetTask(task_id);
-                currentCol = Number(task && task.column_id ? task.column_id : 0);
-                if (currentCol) section.dataset.columnId = String(currentCol);
-            }
-            const needsArtworkCheck = [1, 2, 3, 5].includes(currentCol); // backlog/new/design/pending action
-            if (needsArtworkCheck) {
-                const files = await kbGetAllTaskFiles(task_id).catch(() => []);
-                const hasArtwork = Array.isArray(files) && files.some(f => isArtworkLike(f));
-                if (!hasArtwork) {
-                    const proceed = confirm('No artwork attached. Are you sure you want to move it to the queue for printing?');
-                    if (!proceed) {
-                        showPopupNotification('Move cancelled: no artwork attached', 'warning', 3000);
-                        return;
-                    }
-                }
-            }
-        } catch (err) {
-            // If verification fails, still warn user and ask to proceed
-            const proceed = confirm('Could not verify artwork attachments. Do you still want to move it to the queue for printing?');
-            if (!proceed) {
-                showPopupNotification('Move cancelled', 'warning', 2500);
-                return;
-            }
-        }
-    }
     try {
         const ok = await kbMoveTask({ project_id, task_id, column_id, position, swimlane_id });
         if (ok) {
@@ -2876,125 +2798,163 @@ function highlightCurrentKanboardButton(sectionEl, currentColumnId) {
     }
 }
 
-// Heuristic to decide whether a file looks like "artwork"
-function isArtworkLike(file) {
-    try {
-        if (!file) return false;
-        if (String(file.is_image) === '1') return true;
-        const name = (file.name || '').toString().toLowerCase();
-        const exts = ['.pdf', '.ai', '.eps', '.svg', '.psd', '.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.webp'];
-        return exts.some(ext => name.endsWith(ext));
-    } catch (_) {
-        return false;
-    }
+// -------- Kanboard Files: list, upload, download --------
+async function kbGetAllTaskFiles(task_id) {
+    return kbRpc('getAllTaskFiles', { task_id: Number(task_id) });
+}
+async function kbDownloadTaskFile(file_id) {
+    return kbRpc('downloadTaskFile', [Number(file_id)]);
+}
+async function kbCreateTaskFile(project_id, task_id, name, base64) {
+    return kbRpc('createTaskFile', [Number(project_id), Number(task_id), name, base64]);
 }
 
-// -------- Kanboard Files (list/upload/download) --------
-async function initKanboardFilesSection(job) {
-    try {
-        await renderKanboardFilesList(job);
-    } catch (err) {
-        console.error('Init KB files error:', err);
-    }
+function formatBytes(bytes) {
+    const b = Number(bytes || 0);
+    if (isNaN(b) || b <= 0) return '0 B';
+    const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(b) / Math.log(k));
+    return `${(b / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
-async function renderKanboardFilesList(job) {
-    const wrap = document.getElementById(`kb-files-${job._key}`);
-    const listEl = document.getElementById(`kb-files-list-${job._key}`);
-    if (!wrap || !listEl) return;
-    listEl.textContent = 'Loading…';
+async function renderKanboardFiles(job) {
+    const resultEl = document.getElementById(`kb-files-result-${job._key}`);
+    if (!resultEl) return;
+    resultEl.innerHTML = '<div style="color:#6b7280;">Loading files...</div>';
     try {
-        // Ensure we have project/task context
+        // Ensure section has snapshot
         const section = document.getElementById(`kb-${job._key}`);
-        let taskId = job.apiTaskId;
-        if (section && section.dataset.taskId) taskId = section.dataset.taskId;
-        const files = await kbGetAllTaskFiles(Number(taskId));
+        if (section && (!section.dataset.projectId || !section.dataset.taskId)) {
+            await initKanboardSection(job, true);
+        }
+        const files = await kbGetAllTaskFiles(job.apiTaskId);
         if (!files || files.length === 0) {
-            listEl.innerHTML = `<div style="color:#64748b">No files attached to this task yet.</div>`;
+            resultEl.innerHTML = '<div style="color:#6b7280;">No files attached to this task yet.</div>';
             return;
         }
-        const rows = files.map(f => {
-            const dateStr = f.date ? new Date(parseInt(f.date, 10) * 1000).toLocaleDateString() : '';
-            const sizeStr = f.size ? (parseInt(f.size, 10) < 1024 ? f.size + ' B' : (parseInt(f.size, 10)/1024).toFixed(1) + ' KB') : '';
-            const isImg = f.is_image === '1';
-            return `<div style="display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;background:#f8fafc;">
-                <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-                    <span style="font-size:18px;">${isImg ? '🖼️' : '📄'}</span>
-                    <div style="min-width:0;">
-                        <div style="color:#0f172a;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;" title="${f.name}">${f.name}</div>
-                        <div style="font-size:12px;color:#475569;">ID ${f.id} • ${dateStr} • ${sizeStr}</div>
-                    </div>
-                </div>
-                <div style="flex:0 0 auto;">
-                    <button class="kb-file-download-btn" data-fileid="${f.id}" data-filename="${encodeURIComponent(f.name)}" style="background:#64748b;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">Download</button>
-                </div>
-            </div>`;
-        }).join('');
-        listEl.innerHTML = rows;
+        let html = '<table style="width:100%;border-collapse:collapse;"><thead><tr>' +
+            '<th style="text-align:left;padding:6px;border-bottom:1px solid #e5e7eb;">Name</th>' +
+            '<th style="text-align:left;padding:6px;border-bottom:1px solid #e5e7eb;">Size</th>' +
+            '<th style="text-align:left;padding:6px;border-bottom:1px solid #e5e7eb;">Date</th>' +
+            '<th style="text-align:left;padding:6px;border-bottom:1px solid #e5e7eb;">Action</th>' +
+            '</tr></thead><tbody>';
+        files.forEach(f => {
+            const dateStr = f.date ? new Date(parseInt(f.date, 10) * 1000).toLocaleString() : '—';
+            html += `<tr>
+                <td style="padding:6px;border-bottom:1px solid #f1f5f9;">${f.name || 'file'}</td>
+                <td style="padding:6px;border-bottom:1px solid #f1f5f9;">${formatBytes(f.size)}</td>
+                <td style="padding:6px;border-bottom:1px solid #f1f5f9;">${dateStr}</td>
+                <td style="padding:6px;border-bottom:1px solid #f1f5f9;">
+                    <button class="kb-file-download-btn" data-fileid="${f.id}" data-filename="${(f.name || 'file').replace(/\"/g,'') }" style="background:#374151;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">Download</button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        resultEl.innerHTML = html;
     } catch (err) {
-        console.error('List KB files error:', err);
-        listEl.innerHTML = `<div style="color:#b91c1c">Failed to load files: ${err.message || err}</div>`;
+        console.error('Files load error:', err);
+        resultEl.innerHTML = `<div style="color:#b23c3c;">Error loading files: ${err.message || err}</div>`;
     }
 }
 
-async function uploadFileToKanboard(job) {
-    const input = document.getElementById(`kb-file-input-${job._key}`);
-    const nameSpan = document.getElementById(`kb-file-name-${job._key}`);
-    const listEl = document.getElementById(`kb-files-list-${job._key}`);
-    if (!input || !input.files || input.files.length === 0) {
-        showPopupNotification('Please choose a file first.', 'warning', 2500);
-        return;
+// Delegate UI events for files section
+document.body.addEventListener('click', async (e) => {
+    // Open file input selector
+    if (e.target.classList.contains('kb-file-select')) {
+        const jobId = e.target.dataset.jobid;
+        const input = document.querySelector(`.kb-file-input[data-jobid="${jobId}"]`);
+        if (input) input.click();
     }
-    const section = document.getElementById(`kb-${job._key}`);
-    const project_id = Number(section && section.dataset.projectId ? section.dataset.projectId : 0);
-    const task_id = Number(section && section.dataset.taskId ? section.dataset.taskId : job.apiTaskId);
-    const file = input.files[0];
-    nameSpan.textContent = file.name;
-    listEl && (listEl.textContent = 'Uploading…');
-    const reader = new FileReader();
-    reader.onload = async (e) => {
+    // Refresh list
+    if (e.target.classList.contains('kb-files-refresh-btn')) {
+        const jobId = e.target.dataset.jobid;
+        const job = allJobs.find(j => j._key === jobId);
+        if (job && job.apiTaskId) {
+            await renderKanboardFiles(job);
+        }
+    }
+    // Upload
+    if (e.target.classList.contains('kb-file-upload-btn')) {
+        const btn = e.target;
+        const jobId = btn.dataset.jobid;
+        const job = allJobs.find(j => j._key === jobId);
+        if (!job) return;
+        const input = document.querySelector(`.kb-file-input[data-jobid="${jobId}"]`);
+        if (!input || !input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const section = document.getElementById(`kb-${jobId}`);
+        if (section && (!section.dataset.projectId || !section.dataset.taskId)) {
+            await initKanboardSection(job, true);
+        }
+        const projectId = section ? section.dataset.projectId : undefined;
+        if (!projectId) {
+            showPopupNotification('Unable to detect project for this task', 'error', 3500);
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Uploading...';
         try {
-            const base64 = String(e.target.result).split(',')[1];
-            const fileId = await kbCreateTaskFile(project_id, task_id, file.name, base64);
-            if (typeof fileId === 'number') {
-                showPopupNotification('File uploaded and attached to task', 'success', 2500);
-                input.value = '';
-                nameSpan.textContent = '';
-                await renderKanboardFilesList(job);
-            } else {
-                showPopupNotification('Upload failed: API returned no file id', 'danger', 3000);
-                await renderKanboardFilesList(job);
-            }
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+                reader.onerror = () => reject(reader.error || new Error('Read error'));
+                reader.readAsDataURL(file);
+            });
+            await kbCreateTaskFile(projectId, job.apiTaskId, file.name, base64);
+            showPopupNotification('File uploaded to task', 'success', 2500);
+            // Clear selection
+            input.value = '';
+            const sel = document.getElementById(`kb-file-selected-${jobId}`);
+            if (sel) sel.textContent = '';
+            const uploadBtn = document.querySelector(`.kb-file-upload-btn[data-jobid="${jobId}"]`);
+            if (uploadBtn) uploadBtn.disabled = true;
+            // Refresh list
+            await renderKanboardFiles(job);
         } catch (err) {
-            console.error('Upload KB file error:', err);
-            showPopupNotification('Upload error: ' + (err.message || err), 'danger', 3500);
-            await renderKanboardFilesList(job);
+            console.error('Upload error:', err);
+            showPopupNotification('Upload failed: ' + (err.message || err), 'error', 4000);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Upload';
         }
-    };
-    reader.readAsDataURL(file);
-}
-
-async function downloadKanboardFile(fileId, fileNameEncoded) {
-    try {
-        const base64 = await kbDownloadTaskFile(Number(fileId));
-        if (!base64) {
-            showPopupNotification('No file data returned.', 'warning', 2500);
-            return;
-        }
-        const fileName = decodeURIComponent(fileNameEncoded || 'download');
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
-        const blob = new Blob([new Uint8Array(byteNumbers)]);
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(link.href), 0);
-    } catch (err) {
-        console.error('Download KB file error:', err);
-        showPopupNotification('Download error: ' + (err.message || err), 'danger', 3500);
     }
-}
+    // Download
+    if (e.target.classList.contains('kb-file-download-btn')) {
+        const fileId = e.target.dataset.fileid;
+        const fileName = e.target.dataset.filename || 'download';
+        try {
+            const base64 = await kbDownloadTaskFile(fileId);
+            if (!base64) return;
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+            const blob = new Blob([new Uint8Array(byteNumbers)]);
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (err) {
+            console.error('Download error:', err);
+            showPopupNotification('Download failed: ' + (err.message || err), 'error', 3500);
+        }
+    }
+});
+
+// Track file input change to enable upload and show name
+document.body.addEventListener('change', (e) => {
+    if (e.target.classList.contains('kb-file-input')) {
+        const input = e.target;
+        const jobId = input.dataset.jobid;
+        const sel = document.getElementById(`kb-file-selected-${jobId}`);
+        const btn = document.querySelector(`.kb-file-upload-btn[data-jobid="${jobId}"]`);
+        if (input.files && input.files.length > 0) {
+            if (sel) sel.textContent = `Selected: ${input.files[0].name}`;
+            if (btn) btn.disabled = false;
+        } else {
+            if (sel) sel.textContent = '';
+            if (btn) btn.disabled = true;
+        }
+    }
+});
