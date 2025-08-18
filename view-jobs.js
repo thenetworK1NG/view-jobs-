@@ -55,6 +55,8 @@ let currentFilters = {
     sortBy: 'date-desc'
 };
 const allowedPeople = ["Andre", "Francois", "Yolandie", "Neil"];
+// Track which Kanboard task IDs we've synced this session to avoid extra calls
+const kbSyncedTaskIds = new Set();
 
 // Kanboard JSON-RPC integration (same API/auth as SearchTask.html)
 const KB_BASE_URL = 'http://board.maphefosigns.co.za/jsonrpc.php';
@@ -1074,10 +1076,65 @@ function renderClientList() {
     for (const [client, jobs] of clientMap.entries()) {
         const btn = document.createElement('button');
         btn.className = 'client-name';
-        btn.textContent = `${client} (${jobs.length})`;
+        // Build label and add checkmark if any job is in Kanboard 'done'
+        let labelHtml = `${client} (${jobs.length})`;
+        const col9Count = jobs.reduce((n, j) => n + ((j && Number(j.kbColumnId) === 9) ? 1 : 0), 0);
+        const doneCount = jobs.reduce((n, j) => n + ((j && (j.kbDone === true || Number(j.kbColumnId) === 4)) ? 1 : 0), 0);
+        const hasCollected = col9Count > 0;
+        const hasKbDone = !hasCollected && doneCount > 0;
+        if (hasCollected) {
+            // Collected state takes precedence
+            labelHtml += ` <span title="At least one job collected" style="vertical-align:middle;display:inline-flex;align-items:center;margin-left:6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+            </span>`;
+            labelHtml += ` <span title="${col9Count} job(s) collected" style="margin-left:6px;background:#e0f2fe;color:#075985;padding:2px 8px;border-radius:999px;font-size:0.8rem;border:1px solid #0ea5e9;">Collected: ${col9Count}</span>`;
+        } else if (hasKbDone) {
+            // Add green check icon
+            labelHtml += ` <span title="At least one job moved to 'done'" style="vertical-align:middle;display:inline-flex;align-items:center;margin-left:6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+            </span>`;
+            // Add a pill with the count of done jobs
+            labelHtml += ` <span title="${doneCount} job(s) moved to 'done'" style="margin-left:6px;background:#dcfce7;color:#065f46;padding:2px 8px;border-radius:999px;font-size:0.8rem;border:1px solid #10b981;">Done: ${doneCount}</span>`;
+        }
+        btn.innerHTML = labelHtml;
         btn.onclick = () => openClientModal(client, jobs);
+        // Add a green border highlight for visual emphasis
+        if (hasCollected) {
+            btn.style.border = '2px solid #0ea5e9';
+        } else if (hasKbDone) {
+            btn.style.border = '2px solid #10b981';
+        }
         clientListDiv.appendChild(btn);
     }
+
+    // Background sync: fetch Kanboard column for visible jobs missing kb flags
+    try {
+        const visibleJobs = Array.from(clientMap.values()).flat();
+        const toSync = visibleJobs.filter(j => j && j.apiTaskId && (j.kbColumnId === undefined || j.kbColumnId === null) && !kbSyncedTaskIds.has(String(j.apiTaskId)));
+        if (toSync.length > 0) {
+            (async () => {
+                for (const j of toSync.slice(0, 20)) { // limit to 20 per pass
+                    kbSyncedTaskIds.add(String(j.apiTaskId));
+                    try {
+                        const task = await kbGetTask(j.apiTaskId);
+                        const newCol = Number(task.column_id || 0);
+                        const updated = { ...j, kbColumnId: newCol, kbDone: newCol === 4 };
+                        await set(ref(database, 'jobCards/' + j._key), updated);
+                        const idx = allJobs.findIndex(x => x._key === j._key);
+                        if (idx !== -1) allJobs[idx] = updated;
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+                // Re-render after sync to reflect checkmarks
+                renderClientList();
+            })();
+        }
+    } catch (_) { /* no-op */ }
 }
 
 function formatRand(amount) {
@@ -1102,6 +1159,25 @@ function openClientModal(client, jobs) {
         
         // Add overdue warning to job header if applicable
         let jobHeader = `Job #${idx + 1}`;
+        // Add Kanboard collected/done badges if applicable
+        const kbCol = Number(job.kbColumnId);
+        const isCollected = kbCol === 9;
+        const isKbDone = !isCollected && (job && (job.kbDone === true || kbCol === 4));
+        if (isCollected) {
+            jobHeader += ` <span title="Moved to 'collected'" style="vertical-align:middle;display:inline-flex;align-items:center;margin-left:6px;color:#0ea5e9;font-weight:600;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Collected
+            </span>`;
+        } else if (isKbDone) {
+            jobHeader += ` <span title="Moved to 'done'" style="vertical-align:middle;display:inline-flex;align-items:center;margin-left:6px;color:#10b981;font-weight:600;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Done
+            </span>`;
+        }
         if (isOverdue) {
             jobHeader += ` <span class="overdue-warning overdue-tooltip" data-tooltip="This job is ${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue" style="font-size:0.7rem;margin-left:8px;">
                 <svg class="overdue-warning-icon" viewBox="0 0 20 20" fill="currentColor">
@@ -1161,6 +1237,7 @@ function openClientModal(client, jobs) {
             <button class='edit-job-btn' data-jobid='${jobId}' style='margin-top:12px;background:#7c3aed;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Edit</button>
             <button class='send-along-btn' data-jobid='${jobId}' style='margin-top:12px;background:#38bdf8;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Send It Along</button>
             <button class='save-pdf-btn' data-jobid='${jobId}' style='margin-top:12px;background:#10b981;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Save as PDF</button>
+            ${job.apiTaskId ? `<button class='picked-up-btn' data-jobid='${jobId}' style='margin-top:12px;background:#0ea5e9;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Picked Up</button>` : ''}
             <button class='mark-done-btn' data-jobid='${jobId}' style='margin-top:12px;background:#10b981;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;margin-right:10px;'>Mark as Done</button>
             <button class='delete-job-btn' data-jobid='${jobId}' style='margin-top:12px;background:#b23c3c;color:#fff;border:none;padding:10px 22px;border-radius:7px;font-size:1rem;cursor:pointer;'>Delete Job</button>
         </div>`;
@@ -1206,6 +1283,34 @@ document.body.addEventListener('click', function(e) {
         const job = allJobs.find(j => j._key === jobId);
         if (!job) return;
         generatePDF(job);
+    }
+    if (e.target.classList.contains('picked-up-btn')) {
+        const jobId = e.target.dataset.jobid;
+        const job = allJobs.find(j => j._key === jobId);
+        if (!job || !job.apiTaskId) return;
+        (async () => {
+            try {
+                await handleKanboardMove(job, 9);
+                showPopupNotification('Job marked as Collected (moved to column 9)', 'success', 3000);
+                clientModal.style.display = 'none';
+                // Persist collected state explicitly as well
+                const updatedJob = { ...job, kbColumnId: 9, kbDone: false };
+                await set(ref(database, 'jobCards/' + job._key), updatedJob);
+                const idx = allJobs.findIndex(j => j._key === job._key);
+                if (idx !== -1) allJobs[idx] = updatedJob;
+                // Refresh lists
+                if (selectedPerson) {
+                    let jobs = allJobs.filter(j => j.assignedTo === selectedPerson && !isJobInRecycle(j) && !isJobDone(j));
+                    jobs = applyFiltersToJobs(jobs);
+                    const clientMap = groupJobsByClient(jobs);
+                    renderFilteredClientList(clientMap);
+                } else {
+                    renderClientList();
+                }
+            } catch (err) {
+                showPopupNotification('Failed to mark as Collected: ' + (err.message || err), 'danger', 3500);
+            }
+        })();
     }
     if (e.target.classList.contains('mark-done-btn')) {
         const jobId = e.target.dataset.jobid;
@@ -1682,6 +1787,27 @@ function renderFilteredClientList(clientMap) {
         
         // Create button content with potential warning icon
         let buttonContent = `${client} (${jobs.length})`;
+
+        // Show a pill if any job for this client is Collected (column 9) or Done (column 4)
+        const col9Count = jobs.reduce((n, j) => n + ((j && Number(j.kbColumnId) === 9) ? 1 : 0), 0);
+        const doneCount = jobs.reduce((n, j) => n + ((j && (j.kbDone === true || Number(j.kbColumnId) === 4)) ? 1 : 0), 0);
+        const hasCollected = col9Count > 0;
+        const hasKbDone = !hasCollected && doneCount > 0;
+        if (hasCollected) {
+            buttonContent += ` <span title="At least one job collected" style="vertical-align:middle;display:inline-flex;align-items:center;margin-left:6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+            </span>`;
+            buttonContent += ` <span title="${col9Count} job(s) collected" style="margin-left:6px;background:#e0f2fe;color:#075985;padding:2px 8px;border-radius:999px;font-size:0.8rem;border:1px solid #0ea5e9;">Collected: ${col9Count}</span>`;
+        } else if (hasKbDone) {
+            buttonContent += ` <span title="At least one job moved to 'done'" style="vertical-align:middle;display:inline-flex;align-items:center;margin-left:6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+            </span>`;
+            buttonContent += ` <span title="${doneCount} job(s) moved to 'done'" style="margin-left:6px;background:#dcfce7;color:#065f46;padding:2px 8px;border-radius:999px;font-size:0.8rem;border:1px solid #10b981;">Done: ${doneCount}</span>`;
+        }
         
         if (hasOverdueJobs) {
             // Find the most overdue job for this client
@@ -1706,6 +1832,11 @@ function renderFilteredClientList(clientMap) {
         
         btn.innerHTML = buttonContent;
         btn.onclick = () => openClientModal(client, jobs);
+        if (hasCollected) {
+            btn.style.border = '2px solid #0ea5e9';
+        } else if (hasKbDone) {
+            btn.style.border = '2px solid #10b981';
+        }
         
         // Only animate if this client hasn't been animated before
         if (!animatedClients.has(client)) {
@@ -1732,6 +1863,36 @@ function renderFilteredClientList(clientMap) {
     if (selectedPerson) {
         applyUserTheme(selectedPerson);
     }
+
+    // Background sync for selected user's visible jobs missing kb flags
+    try {
+        const visibleJobs = Array.from(clientMap.values()).flat();
+        const toSync = visibleJobs.filter(j => j && j.apiTaskId && (j.kbColumnId === undefined || j.kbColumnId === null) && !kbSyncedTaskIds.has(String(j.apiTaskId)));
+        if (toSync.length > 0) {
+            (async () => {
+                for (const j of toSync.slice(0, 20)) {
+                    kbSyncedTaskIds.add(String(j.apiTaskId));
+                    try {
+                        const task = await kbGetTask(j.apiTaskId);
+                        const newCol = Number(task.column_id || 0);
+                        const updated = { ...j, kbColumnId: newCol, kbDone: newCol === 4 };
+                        await set(ref(database, 'jobCards/' + j._key), updated);
+                        const idx = allJobs.findIndex(x => x._key === j._key);
+                        if (idx !== -1) allJobs[idx] = updated;
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+                // Re-render filtered list after syncing
+                if (selectedPerson) {
+                    let jobs = allJobs.filter(job => job.assignedTo === selectedPerson && !isJobInRecycle(job) && !isJobDone(job));
+                    jobs = applyFiltersToJobs(jobs);
+                    const refreshedMap = groupJobsByClient(jobs);
+                    renderFilteredClientList(refreshedMap);
+                }
+            })();
+        }
+    } catch (_) { /* no-op */ }
 }
 
 // Add search functionality
@@ -2738,9 +2899,44 @@ async function initKanboardSection(job, force = false) {
         section.dataset.projectId = task.project_id;
         section.dataset.taskId = task.id || job.apiTaskId;
         section.dataset.swimlaneId = task.swimlane_id || 1;
-    section.dataset.columnId = task.column_id || '';
-    // Highlight current column button
-    highlightCurrentKanboardButton(section, Number(task.column_id));
+        section.dataset.columnId = task.column_id || '';
+        // Highlight current column button
+        highlightCurrentKanboardButton(section, Number(task.column_id));
+
+        // Persist Kanboard status to Firebase/local state so main list can show checkmark
+        const newKbCol = Number(task.column_id || 0);
+        const newKbDone = newKbCol === 4;
+        if (job.kbColumnId !== newKbCol || job.kbDone !== newKbDone) {
+            const updatedJob = { ...job, kbColumnId: newKbCol, kbDone: newKbDone };
+            try {
+                await set(ref(database, 'jobCards/' + job._key), updatedJob);
+                const idx = allJobs.findIndex(j => j._key === job._key);
+                if (idx !== -1) allJobs[idx] = updatedJob;
+            } catch (e) {
+                console.warn('KB init: failed to persist kb state:', e);
+            }
+        }
+
+        // If done, ensure the job header in modal shows a badge immediately
+        if (newKbDone) {
+            try {
+                const container = section.closest('.a4-job-details');
+                const h3 = container ? container.querySelector('h3') : null;
+                if (h3 && !h3.querySelector('.kb-done-badge')) {
+                    const span = document.createElement('span');
+                    span.className = 'kb-done-badge';
+                    span.title = "Moved to 'done'";
+                    span.style.verticalAlign = 'middle';
+                    span.style.display = 'inline-flex';
+                    span.style.alignItems = 'center';
+                    span.style.marginLeft = '6px';
+                    span.style.color = '#10b981';
+                    span.style.fontWeight = '600';
+                    span.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M20 6L9 17l-5-5" /></svg>Done`;
+                    h3.appendChild(span);
+                }
+            } catch (_) { /* no-op */ }
+        }
     } catch (err) {
         // Keep silent in UI; optionally console error
         console.error('Kanboard load error:', err);
@@ -2765,6 +2961,23 @@ async function handleKanboardMove(job, overrideColumnId) {
             // Update stored column and highlight
             section.dataset.columnId = String(column_id);
             highlightCurrentKanboardButton(section, column_id);
+            // Persist Kanboard status to job and refresh UI so checkmarks are visible
+            try {
+                const updatedJob = { ...job, kbColumnId: column_id, kbDone: Number(column_id) === 4 };
+                await set(ref(database, 'jobCards/' + job._key), updatedJob);
+                const idx = allJobs.findIndex(j => j._key === job._key);
+                if (idx !== -1) allJobs[idx] = updatedJob;
+                if (selectedPerson) {
+                    let jobs = allJobs.filter(j => j.assignedTo === selectedPerson && !isJobInRecycle(j) && !isJobDone(j));
+                    jobs = applyFiltersToJobs(jobs);
+                    const clientMap = groupJobsByClient(jobs);
+                    renderFilteredClientList(clientMap);
+                } else {
+                    renderClientList();
+                }
+            } catch (e) {
+                console.warn('Failed to persist kb status to job:', e);
+            }
             // Also refresh from server in background to keep snapshot fresh
             await initKanboardSection(job, true);
         } else {
