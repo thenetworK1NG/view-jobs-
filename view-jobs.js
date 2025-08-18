@@ -1193,6 +1193,7 @@ function openClientModal(client, jobs) {
                 <tr><th>Date</th><td>${safeField(job.date)}${isOverdue ? ' <span style="color:#dc2626;font-weight:600;">(OVERDUE)</span>' : ''}</td></tr>
                 <tr><th>Customer Cell Number</th><td>${safeField(job.customerCell)}</td></tr>
                 <tr><th>Email</th><td>${safeField(job.email)}</td></tr>
+                ${job.orderNumber ? `<tr><th>Order Number</th><td>${safeField(job.orderNumber)}</td></tr>` : ''}
                 <tr><th>Job Total</th><td>${job.jobTotal ? formatRand(job.jobTotal) : '—'}</td></tr>
                 <tr><th>Deposit</th><td>${job.deposit ? formatRand(job.deposit) : '—'}</td></tr>
                 <tr><th>Balance Due</th><td>${job.balanceDue ? formatRand(job.balanceDue) : '—'}</td></tr>
@@ -1510,7 +1511,7 @@ function generatePDF(job) {
     doc.text('Invoice NO: ___________', 20, 45, { align: 'left' });
     doc.text('Quote NO: ____________', 20, 52, { align: 'left' });
     // Top right
-    doc.text('Order Number: __________', 150, 45, { align: 'left' });
+    doc.text(`Order Number: ${job.orderNumber ? String(job.orderNumber) : '__________'}`, 150, 45, { align: 'left' });
     doc.text(`Jobcard No: ${job.apiTaskId || '___________'}`, 150, 52, { align: 'left' });
 
     // Add job details in the specified order with professional styling (excluding description)
@@ -1521,6 +1522,7 @@ function generatePDF(job) {
         ['Customer Name', safeField(job.customerName)],
         ['Cell Number', safeField(job.customerCell)],
         ['Email', safeField(job.email)],
+        ...(job.orderNumber ? [['Order Number', safeField(job.orderNumber)]] : []),
         ['Stickers', safeList(job.stickers)],
         ['Other', safeList(job.other)],
         ['Banner', safeList(job.banner_canvas)],
@@ -1568,9 +1570,17 @@ function generatePDF(job) {
         }
     });
 
-    // Add additional notes section at the bottom
-    const finalY = doc.lastAutoTable.finalY || 180; // Get the Y position after the table
-    let notesY = Math.max(finalY + 20, 180); // Start notes at least 20mm below table or at 180mm
+    // Add additional notes section, positioned safely above signature to avoid overlap
+    const finalY = doc.lastAutoTable.finalY || 180; // Y after the table
+    const pageHeight = doc.internal.pageSize.height;
+    const signatureTopY = pageHeight - 60; // top of signature area (client signature is at -55)
+    const notesBlockHeight = 53; // approx: header + padding + 5 lines
+    // Start a bit closer to the table (10mm) and allow it to be higher overall
+    let notesY = Math.max(finalY + 10, 160);
+    // If notes would collide with signature area, move them up
+    if (notesY + notesBlockHeight > signatureTopY) {
+        notesY = Math.max(finalY + 10, signatureTopY - notesBlockHeight - 5);
+    }
     
     doc.setFontSize(14);
     doc.setTextColor(80, 80, 80);
@@ -1586,7 +1596,6 @@ function generatePDF(job) {
     }
 
     // Add footer
-    const pageHeight = doc.internal.pageSize.height;
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
     doc.text('Generated on: ' + new Date().toLocaleDateString(), 20, pageHeight - 35);
